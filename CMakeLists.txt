@@ -10,4 +10,6 @@ INTERFACE
     include
 )
 
-add_subdirectory(srctest)
+if(THOUSANDEYES_FUTURES_BUILD_TESTS)
+    add_subdirectory(srctest)
+endif()
