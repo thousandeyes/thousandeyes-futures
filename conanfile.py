@@ -8,7 +8,7 @@ class ThousandEyesFuturesConan(ConanFile):
 
     def package(self):
         self.copy("*.h")
-        self.copy("FindThousandeyesFutures.cmake", dst=".", src=".")
+        self.copy("FindThousandEyesFutures.cmake", dst=".", src=".")
 
     def package_id(self):
         self.info.header_only()
