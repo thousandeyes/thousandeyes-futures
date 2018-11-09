@@ -12,6 +12,7 @@ INTERFACE
 
 target_sources(thousandeyes-futures INTERFACE
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/Default.h
+    ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/DefaultExecutor.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/Executor.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/PollingExecutor.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/TimedWaitable.h
@@ -25,6 +26,8 @@ target_sources(thousandeyes-futures INTERFACE
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/FutureWithForwarding.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/FutureWithIterators.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/FutureWithTuple.h
+    ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/InvokerWithNewThread.h
+    ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/InvokerWithSingleThread.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/typetraits.h
 )
 

@@ -22,10 +22,21 @@ class PollingExecutor :
     public Executor,
     public std::enable_shared_from_this<PollingExecutor<TPollFunctor, TDispatchFunctor>> {
 public:
+
+    //! \brief Constructs a #PollingExecutor with default-constructed functors
+    //! for polling and dispatching ready #Waitables
+    //!
+    //! \param q The polling frequancy.
     PollingExecutor(std::chrono::microseconds q) :
         q_(std::move(q))
     {}
 
+    //! \brief Constructs a #PollingExecutor with the given functors
+    //! for polling and dispatching ready #Waitables
+    //!
+    //! \param q The polling frequancy.
+    //! \param pollFunc The functor used to dispatch the polling function.
+    //! \param dispatchFunc The functor used to dispatch the ready #Waitables.
     PollingExecutor(std::chrono::microseconds q,
                     TPollFunctor&& pollFunc,
                     TDispatchFunctor&& dispatchFunc) :
