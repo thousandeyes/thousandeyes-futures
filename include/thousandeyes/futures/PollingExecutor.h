@@ -77,7 +77,6 @@ public:
             isPollerRunning_ = true;
         }
 
-        // shared_from_this() is thread-safe
         auto keep = this->shared_from_this();
 
         pollFunc_([this, keep]() {
@@ -142,7 +141,13 @@ public:
             dispatchFunc_.stop();
         }
 
-        // TODO: Dispatch pending waitables with exception
+        if (!pending.empty()) {
+            auto error = std::make_exception_ptr(WaitableWaitException("Executor stoped"));
+            do {
+                pending.front()->dispatch(error);
+                pending.pop();
+            } while (!pending.empty());
+        }
     }
 
 private:

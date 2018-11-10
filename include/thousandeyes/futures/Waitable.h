@@ -6,6 +6,16 @@
 namespace thousandeyes {
 namespace futures {
 
+//! \brief Exception thrown by the Waitable objects when there's some error.
+//!
+//! \sa Waitable
+class WaitableWaitException : public std::runtime_error {
+public:
+    explicit WaitableWaitException(const std::string& reason) :
+        std::runtime_error(reason)
+    {}
+};
+
 //! \brief Interface to represent objects that can be waited on and get
 //! dispatched.
 class Waitable {
@@ -20,7 +30,7 @@ public:
     //!
     //! \return true if the object is ready and false otherwise.
     //!
-    //! \throws std::exception if something exceptional happens during waiting.
+    //! \throws #WaitableWaitException if an error occurs at/during waiting.
     //!
     //! \note Once wait() returns true, subsequent invocations of wait() should
     //! also return true as soon as possible.

@@ -50,6 +50,9 @@ public:
                                                                       cont_(std::move(f_)),
                                                                       std::move(p_)));
             }
+            else {
+                throw WaitableWaitException("No executor available");
+            }
         }
         catch (...) {
             p_.set_exception(std::current_exception());

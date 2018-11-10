@@ -31,8 +31,6 @@ public:
 
     void operator()(std::function<void()> f)
     {
-        std::lock_guard<std::mutex> lock(m_);
-
         if (!usingT0_ && t0_.joinable()) {
             t0_.join();
         }
@@ -47,9 +45,8 @@ public:
     }
 
 private:
-    std::mutex m_;
-
     bool usingT0_{ false };
+
     std::thread t0_;
     std::thread t1_;
 };
