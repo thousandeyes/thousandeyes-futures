@@ -24,6 +24,9 @@ public:
     //! \note A #Waitable is ready only when its wait() method returns true or
     //! when it throws.
     virtual void watch(std::unique_ptr<Waitable> w) = 0;
+
+    //! \brief Stops the executor and tries to cancel all pending operations.
+    virtual void stop() = 0;
 };
 
 } // namespace futures

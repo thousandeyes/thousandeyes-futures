@@ -13,11 +13,18 @@ class InvokerWithNewThread {
 public:
     ~InvokerWithNewThread()
     {
-        if (t0_.joinable()) {
+        stop();
+    }
+
+    void start() {}
+
+    void stop()
+    {
+        if (t0_.joinable() && t0_.get_id() != std::this_thread::get_id()) {
             t0_.join();
         }
 
-        if (t1_.joinable()) {
+        if (t1_.joinable() && t1_.get_id() != std::this_thread::get_id()) {
             t1_.join();
         }
     }
@@ -43,7 +50,6 @@ private:
     std::mutex m_;
 
     bool usingT0_{ false };
-
     std::thread t0_;
     std::thread t1_;
 };

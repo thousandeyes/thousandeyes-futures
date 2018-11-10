@@ -14,7 +14,12 @@ namespace detail {
 
 class InvokerWithSingleThread {
 public:
-    InvokerWithSingleThread()
+    ~InvokerWithSingleThread()
+    {
+        stop();
+    }
+
+    void start()
     {
         t_ = std::thread([this]() {
             while (true) {
@@ -39,7 +44,7 @@ public:
         });
     }
 
-    ~InvokerWithSingleThread()
+    void stop()
     {
         bool wasActive;
         {
@@ -53,7 +58,7 @@ public:
             cv_.notify_one();
         }
 
-        if (t_.joinable()) {
+        if (t_.joinable() && t_.get_id() != std::this_thread::get_id()) {
             t_.join();
         }
     }
