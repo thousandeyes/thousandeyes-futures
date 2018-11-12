@@ -86,54 +86,19 @@ future<T> getValueAsync(const T& value)
     static mt19937 gen;
     static uniform_int_distribution<int> dist(5, 50000);
 
-    try {
-        promise<T> p;
-        auto result = p.get_future();
-
-        thread(bind([value](promise<T>& p) {
-            sleep_for(microseconds(dist(gen)));
-            p.set_value_at_thread_exit(value);
-        }, move(p))).detach();
-
-        return result;
-    }
-    catch (const exception&) {
-        // We probably exhasted all the treads - return ready future
-        promise<T> np;
-        np.set_value(value);
-        return np.get_future();
-    }
+    return std::async(std::launch::async, [value]() {
+        sleep_for(microseconds(dist(gen)));
+        return value;
+    });
 }
 
 template<class T, class TException>
 future<T> getExceptionAsync()
 {
-    try {
-        promise<T> p;
-        auto result = p.get_future();
-
-       thread(bind([](promise<T>& p) {
-            try {
-                throw TException();
-            }
-            catch (...) {
-                p.set_exception_at_thread_exit(std::current_exception());
-            }
-        }, move(p))).detach();
-
-        return result;
-    }
-    catch (const exception&) {
-        // We probably exhasted all the treads - return ready future
-        try {
-            throw TException();
-        }
-        catch (...) {
-            promise<T> np;
-            np.set_exception(std::current_exception());
-            return np.get_future();
-        }
-    }
+    return std::async(std::launch::async, []() {
+        throw TException();
+        return T{};
+    });
 }
 
 // blocking_then() implementation for comparisons
