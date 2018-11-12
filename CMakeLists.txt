@@ -31,6 +31,10 @@ target_sources(thousandeyes-futures INTERFACE
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/typetraits.h
 )
 
+if(THOUSANDEYES_FUTURES_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+
 if(THOUSANDEYES_FUTURES_BUILD_TESTS)
     add_subdirectory(srctest)
 endif()
