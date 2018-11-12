@@ -31,6 +31,7 @@
 *.out
 *.app
 
-# Settings and Build directories
+# Settings and Build/Testing directories
 .vscode/
 build/
+Testing/

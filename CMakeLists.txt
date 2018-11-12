@@ -36,5 +36,6 @@ if(THOUSANDEYES_FUTURES_BUILD_EXAMPLES)
 endif()
 
 if(THOUSANDEYES_FUTURES_BUILD_TESTS)
-    add_subdirectory(srctest)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
