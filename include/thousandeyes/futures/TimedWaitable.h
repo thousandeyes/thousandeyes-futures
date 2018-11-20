@@ -12,10 +12,10 @@ namespace futures {
 //! \brief Exception thrown by the TimedWaitable objects when they time out.
 //!
 //! \sa TimedWaitable
-class WaitableTimedOutException : public std::runtime_error {
+class WaitableTimedOutException : public WaitableWaitException {
 public:
     explicit WaitableTimedOutException(const std::string& error) :
-        std::runtime_error(error)
+        WaitableWaitException(error)
     {}
 };
 

@@ -22,25 +22,38 @@ class PollingExecutor :
     public Executor,
     public std::enable_shared_from_this<PollingExecutor<TPollFunctor, TDispatchFunctor>> {
 public:
+
+    //! \brief Constructs a #PollingExecutor with default-constructed functors
+    //! for polling and dispatching ready #Waitables
+    //!
+    //! \param q The polling timeout.
     PollingExecutor(std::chrono::microseconds q) :
         q_(std::move(q))
-    {}
+    {
+        dispatchFunc_.start();
+        pollFunc_.start();
+    }
 
+    //! \brief Constructs a #PollingExecutor with the given functors
+    //! for polling and dispatching ready #Waitables
+    //!
+    //! \param q The polling timeout.
+    //! \param pollFunc The functor used to dispatch the polling function.
+    //! \param dispatchFunc The functor used to dispatch the ready #Waitables.
     PollingExecutor(std::chrono::microseconds q,
                     TPollFunctor&& pollFunc,
                     TDispatchFunctor&& dispatchFunc) :
         q_(std::move(q)),
         pollFunc_(std::forward<TPollFunctor>(pollFunc)),
         dispatchFunc_(std::forward<TDispatchFunctor>(dispatchFunc))
-    {}
+    {
+        dispatchFunc_.start();
+        pollFunc_.start();
+    }
 
     ~PollingExecutor()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-
-        while (!waitables_.empty()) {
-            waitables_.pop();
-        }
+        stop();
     }
 
     PollingExecutor(const PollingExecutor& o) = delete;
@@ -51,7 +64,11 @@ public:
         {
             std::lock_guard<std::mutex> lock(mutex_);
 
-            waitables_.push(move(w));
+            if (!active_) {
+                return;
+            }
+
+            waitables_.push(std::move(w));
 
             if (isPollerRunning_) {
                 return;
@@ -60,7 +77,6 @@ public:
             isPollerRunning_ = true;
         }
 
-        // shared_from_this() is thread-safe
         auto keep = this->shared_from_this();
 
         pollFunc_([this, keep]() {
@@ -71,12 +87,12 @@ public:
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
 
-                    if (waitables_.empty()) {
+                    if (waitables_.empty() || !active_) {
                         isPollerRunning_ = false;
                         break;
                     }
 
-                    w = move(waitables_.front());
+                    w = std::move(waitables_.front());
                     waitables_.pop();
                 }
 
@@ -93,7 +109,7 @@ public:
                 if (!ready) {
                     std::lock_guard<std::mutex> lock(mutex_);
 
-                    waitables_.push(move(w));
+                    waitables_.push(std::move(w));
                     continue;
                 }
 
@@ -107,11 +123,39 @@ public:
         });
     }
 
+    void stop() override final
+    {
+        bool wasActive;
+        std::queue<std::unique_ptr<Waitable>> pending;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+
+            wasActive = active_;
+            active_ = false;
+
+            pending.swap(waitables_);
+        }
+
+        if (wasActive) {
+            pollFunc_.stop();
+            dispatchFunc_.stop();
+        }
+
+        if (!pending.empty()) {
+            auto error = std::make_exception_ptr(WaitableWaitException("Executor stoped"));
+            do {
+                pending.front()->dispatch(error);
+                pending.pop();
+            } while (!pending.empty());
+        }
+    }
+
 private:
     const std::chrono::microseconds q_;
 
     std::mutex mutex_;
     std::queue<std::unique_ptr<Waitable>> waitables_;
+    bool active_{ true };
     bool isPollerRunning_{ false };
 
     typename std::decay<TPollFunctor>::type pollFunc_;

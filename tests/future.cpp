@@ -18,7 +18,7 @@
 
 #include <thousandeyes/futures/all.h>
 #include <thousandeyes/futures/then.h>
-#include <thousandeyes/futures/PollingExecutor.h>
+#include <thousandeyes/futures/DefaultExecutor.h>
 
 using std::array;
 using std::bind;
@@ -54,6 +54,7 @@ using std::chrono::duration_cast;
 using std::this_thread::sleep_for;
 
 using thousandeyes::futures::Default;
+using thousandeyes::futures::DefaultExecutor;
 using thousandeyes::futures::Executor;
 using thousandeyes::futures::PollingExecutor;
 using thousandeyes::futures::Waitable;
@@ -72,46 +73,6 @@ using ::testing::_;
 
 namespace {
 
-class NewThreadInvoker {
-public:
-    ~NewThreadInvoker()
-    {
-        lock_guard<mutex> lock(m_);
-
-        for (thread& t: threads_) {
-            if (t.joinable()) {
-                t.join();
-            }
-        }
-    }
-
-    void operator()(function<void()> f)
-    {
-        lock_guard<mutex> lock(m_);
-
-        threads_.push_back(thread(move(f)));
-    }
-
-private:
-    mutex m_;
-    vector<thread> threads_;
-};
-
-struct InlineInvoker {
-    void operator()(function<void()> f)
-    {
-        f();
-    }
-};
-
-class NewThreadPollingExecutor : public PollingExecutor<reference_wrapper<NewThreadInvoker>,
-                                                        InlineInvoker> {
-public:
-    NewThreadPollingExecutor(std::chrono::microseconds q, NewThreadInvoker& t) :
-        PollingExecutor(std::move(q), t, InlineInvoker())
-    {}
-};
-
 class SomeKindOfError : public runtime_error {
 public:
     SomeKindOfError() :
@@ -125,54 +86,19 @@ future<T> getValueAsync(const T& value)
     static mt19937 gen;
     static uniform_int_distribution<int> dist(5, 50000);
 
-    try {
-        promise<T> p;
-        auto result = p.get_future();
-
-        thread(bind([value](promise<T>& p) {
-            sleep_for(microseconds(dist(gen)));
-            p.set_value_at_thread_exit(value);
-        }, move(p))).detach();
-
-        return result;
-    }
-    catch (const exception&) {
-        // We probably exhasted all the treads - return ready future
-        promise<T> np;
-        np.set_value(value);
-        return np.get_future();
-    }
+    return std::async(std::launch::async, [value]() {
+        sleep_for(microseconds(dist(gen)));
+        return value;
+    });
 }
 
 template<class T, class TException>
 future<T> getExceptionAsync()
 {
-    try {
-        promise<T> p;
-        auto result = p.get_future();
-
-       thread(bind([](promise<T>& p) {
-            try {
-                throw TException();
-            }
-            catch (...) {
-                p.set_exception_at_thread_exit(std::current_exception());
-            }
-        }, move(p))).detach();
-
-        return result;
-    }
-    catch (const exception&) {
-        // We probably exhasted all the treads - return ready future
-        try {
-            throw TException();
-        }
-        catch (...) {
-            promise<T> np;
-            np.set_exception(std::current_exception());
-            return np.get_future();
-        }
-    }
+    return std::async(std::launch::async, []() {
+        throw TException();
+        return T{};
+    });
 }
 
 // blocking_then() implementation for comparisons
@@ -415,10 +341,8 @@ TEST_F(FutureTest, UnboundedThenWithExceptionInOutputPromise)
 
 TEST_F(FutureTest, PollingThenWithoutException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto f = then(getValueAsync(1821), [](future<int> f) {
         return to_string(f.get());
@@ -430,28 +354,28 @@ TEST_F(FutureTest, PollingThenWithoutException)
 
     EXPECT_EQ("1821", f.get());
     EXPECT_EQ("1822", g.get());
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingIdentityChainingThenWithoutException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto f = then(getValueAsync(1821), [](future<int> f) {
         return f;
     });
 
     EXPECT_EQ(1821, f.get());
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingChainingThenWithoutException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto f = then(getValueAsync(1821), [](future<int> f) {
         auto first = to_string(f.get());
@@ -464,14 +388,14 @@ TEST_F(FutureTest, PollingChainingThenWithoutException)
     });
 
     EXPECT_EQ("1821_1822_1823", f.get());
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingThenWithoutExceptionMultipleFutures)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     vector<future<string>> f;
     for (int i = 0; i < 1821; ++i) {
@@ -483,13 +407,14 @@ TEST_F(FutureTest, PollingThenWithoutExceptionMultipleFutures)
     for (int i = 0; i < 1821; ++i) {
         EXPECT_EQ(to_string(i), f[i].get());
     }
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingThenWithExceptionInInputPromise)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto p = make_shared<promise<int>>();
 
@@ -508,14 +433,14 @@ TEST_F(FutureTest, PollingThenWithExceptionInInputPromise)
     });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingChainingThenWithExceptionInInputPromise)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto p = make_shared<promise<int>>();
 
@@ -540,14 +465,14 @@ TEST_F(FutureTest, PollingChainingThenWithExceptionInInputPromise)
     });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingThenWithExceptionInOutputPromise)
 {
-    NewThreadInvoker ti;
-    Default<Executor>::Setter pollerSetter(
-        make_shared<NewThreadPollingExecutor>(milliseconds(10), ti)
-    );
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto p = make_shared<promise<int>>();
 
@@ -561,14 +486,14 @@ TEST_F(FutureTest, PollingThenWithExceptionInOutputPromise)
     });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingChainingThenWithExceptionInOutputPromiseLvl0)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto f = then(getValueAsync(1821), [](future<int> f) {
         throw SomeKindOfError();
@@ -582,14 +507,14 @@ TEST_F(FutureTest, PollingChainingThenWithExceptionInOutputPromiseLvl0)
     });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingChainingThenWithExceptionInOutputPromiseLvl1)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto f = then(getValueAsync(1821), [](future<int> f) {
         auto first = to_string(f.get());
@@ -603,14 +528,14 @@ TEST_F(FutureTest, PollingChainingThenWithExceptionInOutputPromiseLvl1)
     });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingChainingThenWithExceptionInOutputPromiseLvl2)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto f = then(getValueAsync(1821), [](future<int> f) {
         auto first = to_string(f.get());
@@ -624,14 +549,14 @@ TEST_F(FutureTest, PollingChainingThenWithExceptionInOutputPromiseLvl2)
     });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingThenWithExceptionInOutputPromiseMultipleFutures)
 {
-    NewThreadInvoker ti;
-    Default<Executor>::Setter pollerSetter(
-        make_shared<NewThreadPollingExecutor>(milliseconds(10), ti)
-    );
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     vector<future<string>> f;
     for (int i = 0; i < 1821; ++i) {
@@ -644,6 +569,8 @@ TEST_F(FutureTest, PollingThenWithExceptionInOutputPromiseMultipleFutures)
     for (int i = 0; i < 1821; ++i) {
         EXPECT_THROW(f[i].get(), SomeKindOfError);
     }
+
+    executor->stop();
 }
 
 INSTANTIATE_TEST_CASE_P(DISABLED_BenchmarkPollingThenWithDifferentQ,
@@ -652,10 +579,8 @@ INSTANTIATE_TEST_CASE_P(DISABLED_BenchmarkPollingThenWithDifferentQ,
 
 TEST_F(FutureTest, pollingContainerAllSum)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     int targetSum = 0;
 
@@ -675,14 +600,14 @@ TEST_F(FutureTest, pollingContainerAllSum)
     });
 
     EXPECT_EQ(targetSum, f.get());
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingContainerViaIteratorsAllSum)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     int targetSum = 0;
 
@@ -706,27 +631,27 @@ TEST_F(FutureTest, PollingContainerViaIteratorsAllSum)
     });
 
     EXPECT_EQ(targetSum, f.get());
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingEmptyContainerAll)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     vector<future<string>> futures;
 
     auto result = all(move(futures)).get();
     EXPECT_EQ(0U, result.size());
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingContainerAllWithoutException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     vector<future<string>> futures;
     for (int i = 0; i < 1821; ++i) {
@@ -740,27 +665,27 @@ TEST_F(FutureTest, PollingContainerAllWithoutException)
     for (int i = 0; i < 1821; ++i) {
         EXPECT_EQ(to_string(i), f[i].get());
     }
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingEmptyArrayAll)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     array<future<string>, 0> futures;
 
     auto result = all(move(futures)).get();
     EXPECT_EQ(0U, result.size());
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingArrayAllWithoutException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     array<future<string>, 1821> futures;
     for (int i = 0; i < 1821; ++i) {
@@ -774,14 +699,14 @@ TEST_F(FutureTest, PollingArrayAllWithoutException)
     for (int i = 0; i < 1821; ++i) {
         EXPECT_EQ(to_string(i), f[i].get());
     }
+
+    executor->stop();
 }
 
 TEST_P(FutureTest, PollingArrayAllWithExceptionWithParam)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     array<future<string>, 1821> futures;
     for (int i = 0; i < 1821; ++i) {
@@ -806,6 +731,8 @@ TEST_P(FutureTest, PollingArrayAllWithExceptionWithParam)
             EXPECT_EQ(to_string(i), f[i].get());
         }
     }
+
+    executor->stop();
 }
 
 INSTANTIATE_TEST_CASE_P(PollingArrayAllWithExceptionInNthInputPromise,
@@ -814,10 +741,8 @@ INSTANTIATE_TEST_CASE_P(PollingArrayAllWithExceptionInNthInputPromise,
 
 TEST_F(FutureTest, PollingTupleAllWithExplicitTupleWithoutException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto t = all(make_tuple(getValueAsync(1821),
                             getValueAsync(string("1822")),
@@ -826,14 +751,14 @@ TEST_F(FutureTest, PollingTupleAllWithExplicitTupleWithoutException)
     EXPECT_EQ(get<0>(t).get(), 1821);
     EXPECT_EQ(get<1>(t).get(), "1822");
     EXPECT_EQ(get<2>(t).get(), true);
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingTupleAllWithoutException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto f0 = getValueAsync(1821);
     auto f1 = getValueAsync(string("1822"));
@@ -844,14 +769,14 @@ TEST_F(FutureTest, PollingTupleAllWithoutException)
     EXPECT_EQ(get<0>(t).get(), 1821);
     EXPECT_EQ(get<1>(t).get(), "1822");
     EXPECT_EQ(get<2>(t).get(), true);
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingTupleAllWithContinuationWithoutException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto f0 = getValueAsync(1821);
     auto f1 = getValueAsync(string("1822"));
@@ -869,14 +794,14 @@ TEST_F(FutureTest, PollingTupleAllWithContinuationWithoutException)
                   });
 
     EXPECT_EQ(f.get(), "1821_1822_true");
+
+    executor->stop();
 }
 
 TEST_F(FutureTest, PollingTupleAllWithException)
 {
-    NewThreadInvoker ti;
-    auto poller = make_shared<NewThreadPollingExecutor>(milliseconds(10), ti);
-
-    Default<Executor>::Setter pollerSetter(poller);
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
 
     auto t0 = all(getExceptionAsync<int, SomeKindOfError>(),
                   getValueAsync(string("1822")),
@@ -901,4 +826,6 @@ TEST_F(FutureTest, PollingTupleAllWithException)
     EXPECT_EQ(get<0>(t2).get(), 1821);
     EXPECT_EQ(get<1>(t2).get(), "1822");
     EXPECT_THROW(get<2>(t2).get(), SomeKindOfError);
+
+    executor->stop();
 }

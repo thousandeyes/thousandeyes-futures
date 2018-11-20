@@ -18,14 +18,14 @@ namespace futures {
 template<class TIn, class TFunc>
 using cont_returns_value_t =
     typename std::enable_if<
-        !is_template<
+        !detail::is_template<
             typename std::result_of<
                 typename std::decay<TFunc>::type(std::future<TIn>)
             >::type
         >::value ||
         !std::is_same<
             std::future<
-                typename nth_template_param<
+                typename detail::nth_template_param<
                     0,
                     typename std::result_of<
                         typename std::decay<TFunc>::type(std::future<TIn>)
@@ -174,14 +174,14 @@ cont_returns_value_t<TIn, TFunc> then(std::future<TIn> f,
 template<class TIn, class TFunc>
 using cont_returns_future_t =
     typename std::enable_if<
-        is_template<
+        detail::is_template<
             typename std::result_of<
                 typename std::decay<TFunc>::type(std::future<TIn>)
             >::type
         >::value &&
         std::is_same<
             std::future<
-                typename nth_template_param<
+                typename detail::nth_template_param<
                     0,
                     typename std::result_of<
                         typename std::decay<TFunc>::type(std::future<TIn>)
@@ -222,7 +222,7 @@ cont_returns_future_t<TIn, TFunc> then(std::shared_ptr<Executor> executor,
                                        std::future<TIn> f,
                                        TFunc&& cont)
 {
-    using TOut = typename nth_template_param<
+    using TOut = typename detail::nth_template_param<
             0,
             typename std::result_of<
                 typename std::decay<TFunc>::type(std::future<TIn>)

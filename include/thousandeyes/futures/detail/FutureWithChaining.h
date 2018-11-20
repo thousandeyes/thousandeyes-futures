@@ -15,7 +15,7 @@ template<class TIn, class TOut, class TFunc>
 class FutureWithChaining : public TimedWaitable {
 public:
     FutureWithChaining(std::chrono::microseconds waitLimit,
-                       std::shared_ptr<Executor> executor,
+                       std::weak_ptr<Executor> executor,
                        std::future<TIn> f,
                        std::promise<TOut> p,
                        TFunc&& cont) :
@@ -45,9 +45,14 @@ public:
         }
 
         try {
-            executor_->watch(std::make_unique<FutureWithForwarding<TOut>>(getWaitLimit(),
-                                                                          cont_(std::move(f_)),
-                                                                          std::move(p_)));
+            if (auto e = executor_.lock()) {
+                e->watch(std::make_unique<FutureWithForwarding<TOut>>(getWaitLimit(),
+                                                                      cont_(std::move(f_)),
+                                                                      std::move(p_)));
+            }
+            else {
+                throw WaitableWaitException("No executor available");
+            }
         }
         catch (...) {
             p_.set_exception(std::current_exception());
@@ -55,7 +60,7 @@ public:
     }
 
 private:
-    std::shared_ptr<Executor> executor_;
+    std::weak_ptr<Executor> executor_;
     std::future<TIn> f_;
     std::promise<TOut> p_;
     TFunc cont_;
