@@ -573,9 +573,9 @@ TEST_F(FutureTest, PollingThenWithExceptionInOutputPromiseMultipleFutures)
     executor->stop();
 }
 
-INSTANTIATE_TEST_CASE_P(DISABLED_BenchmarkPollingThenWithDifferentQ,
-                        FutureTest,
-                        Range(1, 1000, 10));
+INSTANTIATE_TEST_SUITE_P(DISABLED_BenchmarkPollingThenWithDifferentQ,
+                         FutureTest,
+                         Range(1, 1000, 10));
 
 TEST_F(FutureTest, pollingContainerAllSum)
 {
@@ -735,9 +735,9 @@ TEST_P(FutureTest, PollingArrayAllWithExceptionWithParam)
     executor->stop();
 }
 
-INSTANTIATE_TEST_CASE_P(PollingArrayAllWithExceptionInNthInputPromise,
-                        FutureTest,
-                        Range(0, 1821, 100));
+INSTANTIATE_TEST_SUITE_P(PollingArrayAllWithExceptionInNthInputPromise,
+                         FutureTest,
+                         Range(0, 1821, 100));
 
 TEST_F(FutureTest, PollingTupleAllWithExplicitTupleWithoutException)
 {
@@ -751,6 +751,22 @@ TEST_F(FutureTest, PollingTupleAllWithExplicitTupleWithoutException)
     EXPECT_EQ(get<0>(t).get(), 1821);
     EXPECT_EQ(get<1>(t).get(), "1822");
     EXPECT_EQ(get<2>(t).get(), true);
+
+    executor->stop();
+}
+
+TEST_F(FutureTest, PollingTupleOfTwoAllWithSameType)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f0 = getValueAsync(1821);
+    auto f1 = getValueAsync(1822);
+
+    auto t = all(move(f0), move(f1)).get();
+
+    EXPECT_EQ(get<0>(t).get(), 1821);
+    EXPECT_EQ(get<1>(t).get(), 1822);
 
     executor->stop();
 }

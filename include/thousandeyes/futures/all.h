@@ -1,6 +1,7 @@
 #pragma once
 
 #include <future>
+#include <iterator>
 #include <memory>
 #include <type_traits>
 #include <tuple>
@@ -355,6 +356,17 @@ std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(std::future<
                              std::move(futures)...);
 }
 
+//! \brief SFINAE meta-type that resolves to a forward iterator range.
+template<class TIterator>
+using all_accepts_fwd_iterator_t =
+    typename std::enable_if<
+        std::is_convertible<
+            typename std::iterator_traits<TIterator>::iterator_category,
+            std::forward_iterator_tag
+        >::value,
+        std::future<std::tuple<TIterator, TIterator>>
+    >::type;
+
 //! \brief Creates a future that becomes ready when all the input futures become ready.
 //!
 //! \par The resulting future becomes ready when all the futures in range
@@ -379,12 +391,10 @@ std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(std::future<
 //! \return A std::future<std::tuple> with the input ForwardIterators, where all the
 //! futures in range [first, last) are ready.
 template<class TForwardIterator>
-std::future<std::tuple<TForwardIterator, TForwardIterator>> all(
-    std::shared_ptr<Executor> executor,
-    std::chrono::microseconds timeLimit,
-    TForwardIterator first,
-    TForwardIterator last
-)
+all_accepts_fwd_iterator_t<TForwardIterator> all(std::shared_ptr<Executor> executor,
+                                                 std::chrono::microseconds timeLimit,
+                                                 TForwardIterator first,
+                                                 TForwardIterator last)
 {
     std::promise<std::tuple<TForwardIterator, TForwardIterator>> p;
 
@@ -423,11 +433,9 @@ std::future<std::tuple<TForwardIterator, TForwardIterator>> all(
 //! \return A std::future<std::tuple> with the input ForwardIterators, where all the
 //! futures in range [first, last) are ready.
 template<class TForwardIterator>
-std::future<std::tuple<TForwardIterator, TForwardIterator>> all(
-    std::shared_ptr<Executor> executor,
-    TForwardIterator first,
-    TForwardIterator last
-)
+all_accepts_fwd_iterator_t<TForwardIterator> all(std::shared_ptr<Executor> executor,
+                                                 TForwardIterator first,
+                                                 TForwardIterator last)
 {
     return all<TForwardIterator>(std::move(executor),
                                  std::chrono::hours(1),
@@ -460,9 +468,9 @@ std::future<std::tuple<TForwardIterator, TForwardIterator>> all(
 //! \return A std::future<std::tuple> with the input ForwardIterators, where all the
 //! futures in range [first, last) are ready.
 template<class TForwardIterator>
-std::future<std::tuple<TForwardIterator, TForwardIterator>> all(std::chrono::microseconds timeLimit,
-                                                                TForwardIterator first,
-                                                                TForwardIterator last)
+all_accepts_fwd_iterator_t<TForwardIterator> all(std::chrono::microseconds timeLimit,
+                                                 TForwardIterator first,
+                                                 TForwardIterator last)
 {
     return all<TForwardIterator>(Default<Executor>(),
                                  std::move(timeLimit),
@@ -494,8 +502,8 @@ std::future<std::tuple<TForwardIterator, TForwardIterator>> all(std::chrono::mic
 //! \return A std::future<std::tuple> with the input ForwardIterators, where all the
 //! futures in range [first, last) are ready.
 template<class TForwardIterator>
-std::future<std::tuple<TForwardIterator, TForwardIterator>> all(TForwardIterator first,
-                                                                TForwardIterator last)
+all_accepts_fwd_iterator_t<TForwardIterator> all(TForwardIterator first,
+                                                 TForwardIterator last)
 {
     return all<TForwardIterator>(Default<Executor>(),
                                  std::chrono::hours(1),
