@@ -5,6 +5,7 @@ class ThousandEyesFuturesConan(ConanFile):
     version = "0.1"
     exports_sources = "include/*", "FindThousandEyesFutures.cmake"
     no_copy_source = True
+    short_paths = True
 
     def package(self):
         self.copy("*.h")
