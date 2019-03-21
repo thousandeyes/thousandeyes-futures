@@ -1,3 +1,4 @@
+#include <atomic>
 #include <array>
 #include <chrono>
 #include <functional>
@@ -18,6 +19,7 @@
 
 #include <thousandeyes/futures/all.h>
 #include <thousandeyes/futures/then.h>
+#include <thousandeyes/futures/util.h>
 #include <thousandeyes/futures/DefaultExecutor.h>
 
 using std::array;
@@ -60,6 +62,7 @@ using thousandeyes::futures::PollingExecutor;
 using thousandeyes::futures::Waitable;
 using thousandeyes::futures::then;
 using thousandeyes::futures::all;
+using thousandeyes::futures::fromValue;
 
 namespace detail = thousandeyes::futures::detail;
 
@@ -577,7 +580,7 @@ INSTANTIATE_TEST_SUITE_P(DISABLED_BenchmarkPollingThenWithDifferentQ,
                          FutureTest,
                          Range(1, 1000, 10));
 
-TEST_F(FutureTest, pollingContainerAllSum)
+TEST_F(FutureTest, PollingContainerAllSum)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -842,6 +845,55 @@ TEST_F(FutureTest, PollingTupleAllWithException)
     EXPECT_EQ(get<0>(t2).get(), 1821);
     EXPECT_EQ(get<1>(t2).get(), "1822");
     EXPECT_THROW(get<2>(t2).get(), SomeKindOfError);
+
+    executor->stop();
+}
+
+namespace {
+
+future<int> recFunc1(int count);
+future<int> recFunc2(future<int> f);
+
+future<int> recFunc1(int count)
+{
+    auto h = std::async(std::launch::async, [count]() {
+        sleep_for(milliseconds(1));
+        return count + 1;
+    });
+
+    return then(move(h), [](future<int> g) {
+        return recFunc2(move(g));
+    });
+}
+
+future<int> recFunc2(future<int> f)
+{
+    auto count = f.get();
+
+    if (count == 10) {
+        return fromValue(1821);
+    }
+
+    auto h = std::async(std::launch::async, []() {
+        sleep_for(milliseconds(1));
+    });
+
+    return then(move(h), [count](future<void> g) {
+        g.get();
+        return recFunc1(count);
+    });
+}
+
+} // namespace
+
+TEST_F(FutureTest, MutuallyRecursiveFunctionsCreateDependentFutures)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = recFunc1(0);
+
+    EXPECT_EQ(1821, f.get());
 
     executor->stop();
 }
