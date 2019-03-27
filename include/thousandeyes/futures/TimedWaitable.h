@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <string>
-#include <stdexcept>
 
 #include <thousandeyes/futures/Waitable.h>
 
@@ -76,7 +75,7 @@ protected:
     }
 
 private:
-    std::chrono::microseconds waitLimit_;
+    std::chrono::microseconds waitLimit_{ 0 };
 };
 
 } // namespace futures

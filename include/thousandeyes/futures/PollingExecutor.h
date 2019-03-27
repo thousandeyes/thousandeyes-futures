@@ -116,8 +116,8 @@ public:
                 // Using shared_ptr to enable copy-ability of the lambda, otherwise the
                 // dispatchFunc_ would not be able to accept it as function<void()>
                 std::shared_ptr<Waitable> wShared = std::move(w);
-                dispatchFunc_([error, wShared]() {
-                    wShared->dispatch(error);
+                dispatchFunc_([w=std::move(wShared), error=std::move(error)]() {
+                    w->dispatch(error);
                 });
             }
         });
@@ -158,8 +158,8 @@ private:
     bool active_{ true };
     bool isPollerRunning_{ false };
 
-    typename std::decay<TPollFunctor>::type pollFunc_;
-    typename std::decay<TDispatchFunctor>::type dispatchFunc_;
+    TPollFunctor pollFunc_;
+    TDispatchFunctor dispatchFunc_;
 };
 
 } // namespace futures
