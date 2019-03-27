@@ -82,6 +82,13 @@ public:
     {}
 };
 
+future<void> getValueAsync()
+{
+    return std::async(std::launch::async, []() {
+        sleep_for(milliseconds(1));
+    });
+}
+
 template<class T>
 future<T> getValueAsync(const T& value)
 {
@@ -100,6 +107,14 @@ future<T> getExceptionAsync()
     return std::async(std::launch::async, []() {
         throw TException();
         return T{};
+    });
+}
+
+template<class TException>
+future<void> getExceptionAsync()
+{
+    return std::async(std::launch::async, []() {
+        throw TException();
     });
 }
 
@@ -140,6 +155,109 @@ TEST_F(FutureTest, ThenWithoutException)
 
     EXPECT_EQ("1821", f.get());
     EXPECT_EQ("1822", g.get());
+
+    executor->stop();
+}
+
+TEST_F(FutureTest, ThenWithException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getExceptionAsync<int, SomeKindOfError>(), [](future<int> f) {
+        return to_string(f.get());
+    });
+
+    EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
+}
+
+TEST_F(FutureTest, ThenWithVoidInputWithoutException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getValueAsync(), [](future<void> f) {
+        f.get();
+        return "OK";
+    });
+
+    EXPECT_EQ("OK", f.get());
+
+    executor->stop();
+}
+
+TEST_F(FutureTest, ThenWithVoidInputWithException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getExceptionAsync<SomeKindOfError>(), [](future<void> f) {
+        EXPECT_THROW(f.get(), SomeKindOfError);
+        throw SomeKindOfError();
+        return "OK";
+    });
+
+    EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
+}
+
+TEST_F(FutureTest, ThenWithVoidOutputWithoutException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getValueAsync(1821), [](future<int> f) {
+        EXPECT_EQ(1821, f.get());
+    });
+
+    EXPECT_NO_THROW(f.get());
+
+    executor->stop();
+}
+
+TEST_F(FutureTest, ThenWithVoidOutputWithException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getExceptionAsync<int, SomeKindOfError>(), [](future<int> f) {
+        EXPECT_THROW(f.get(), SomeKindOfError);
+        throw SomeKindOfError();
+    });
+
+    EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
+}
+
+TEST_F(FutureTest, ThenWithVoidInputAndOutputWithoutException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getValueAsync(), [](future<void> f) {
+        EXPECT_NO_THROW(f.get());
+    });
+
+    EXPECT_NO_THROW(f.get());
+
+    executor->stop();
+}
+
+TEST_F(FutureTest, ThenWithVoidInputAndOutputWithException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getExceptionAsync<SomeKindOfError>(), [](future<void> f) {
+        EXPECT_THROW(f.get(), SomeKindOfError);
+        throw SomeKindOfError();
+    });
+
+    EXPECT_THROW(f.get(), SomeKindOfError);
 
     executor->stop();
 }
