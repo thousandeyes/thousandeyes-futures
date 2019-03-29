@@ -23,7 +23,7 @@ future<int> recFunc1(int count)
 {
     cout << string(count, ' ') << "Func1" << endl;
 
-    auto h = std::async(std::launch::async, [count]() {
+    auto h = async(launch::async, [count]() {
         this_thread::sleep_for(milliseconds(1));
         return count + 1;
     });
@@ -43,7 +43,7 @@ future<int> recFunc2(future<int> f)
         return fromValue(1821);
     }
 
-    auto h = std::async(std::launch::async, []() {
+    auto h = async(launch::async, []() {
         this_thread::sleep_for(milliseconds(1));
     });
 

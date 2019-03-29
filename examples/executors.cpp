@@ -25,7 +25,7 @@ namespace executors {
 
 class BlockingExecutor : public Executor {
 public:
-    void watch(std::unique_ptr<Waitable> w)
+    void watch(unique_ptr<Waitable> w)
     {
         try {
            while (active_) {
@@ -55,7 +55,7 @@ private:
 
 class UnboundedExecutor : public Executor {
 public:
-    void watch(std::unique_ptr<Waitable> w)
+    void watch(unique_ptr<Waitable> w)
     {
         lock_guard<mutex> lock(threadListMutex_);
 
@@ -104,7 +104,7 @@ private:
 // that method since using detached threads is not a very good idea anyway.
 class UnboundedExecutor2 : public Executor {
 public:
-    void watch(std::unique_ptr<Waitable> w)
+    void watch(unique_ptr<Waitable> w)
     {
         if (!active_) {
             w->dispatch(make_exception_ptr(WaitableWaitException("Executor stoped")));
@@ -146,7 +146,7 @@ future<T> getValueAsync(const T& value)
     static mt19937 gen;
     static uniform_int_distribution<int> dist(5, 5000000);
 
-    return std::async(std::launch::async, [value]() {
+    return async(launch::async, [value]() {
         this_thread::sleep_for(microseconds(dist(gen)));
         return value;
     });
@@ -155,7 +155,7 @@ future<T> getValueAsync(const T& value)
 template<class T, class TException>
 future<T> getExceptionAsync()
 {
-    return std::async(std::launch::async, []() {
+    return async(launch::async, []() {
         throw TException();
         return T{};
     });
@@ -166,7 +166,7 @@ future<int> recFunc2(future<int> f);
 
 future<int> recFunc1(int count)
 {
-    auto h = std::async(std::launch::async, [count]() {
+    auto h = async(launch::async, [count]() {
         this_thread::sleep_for(milliseconds(1));
         return count + 1;
     });
@@ -184,7 +184,7 @@ future<int> recFunc2(future<int> f)
         return fromValue(1821);
     }
 
-    auto h = std::async(std::launch::async, []() {
+    auto h = async(launch::async, []() {
         this_thread::sleep_for(milliseconds(1));
     });
 

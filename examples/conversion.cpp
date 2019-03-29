@@ -16,7 +16,7 @@ namespace {
 template<class T>
 future<T> getValueAsync(const T& value)
 {
-    return std::async(std::launch::async, [value]() {
+    return async(launch::async, [value]() {
         return value;
     });
 }

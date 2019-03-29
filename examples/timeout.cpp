@@ -17,7 +17,7 @@ using namespace thousandeyes::futures;
 namespace {
 
 template<class T>
-future<T> getValueAfter(const T& value, const std::chrono::milliseconds& t)
+future<T> getValueAfter(const T& value, const milliseconds& t)
 {
     promise<T> p;
     auto result = p.get_future();
