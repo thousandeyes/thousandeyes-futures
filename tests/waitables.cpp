@@ -51,7 +51,7 @@ public:
 
 class TimedWaitableMock : public TimedWaitable {
 public:
-    explicit TimedWaitableMock(milliseconds timeout) :
+    explicit TimedWaitableMock(microseconds timeout) :
         TimedWaitable(move(timeout))
     {}
 
@@ -86,8 +86,8 @@ private:
 
 class Executor : public PollingExecutor<DispatcherFunctor, DispatcherFunctor> {
 public:
-    explicit Executor(shared_ptr<Invoker> d) :
-        PollingExecutor(milliseconds(10), DispatcherFunctor(d), DispatcherFunctor(d))
+    Executor(milliseconds q, shared_ptr<Invoker> d) :
+        PollingExecutor(move(q), DispatcherFunctor(d), DispatcherFunctor(d))
     {}
 };
 
@@ -97,7 +97,7 @@ class WaitablesTest : public Test {
 public:
     WaitablesTest() :
         invoker_(make_shared<Invoker>()),
-        poller_(make_shared<Executor>(invoker_))
+        poller_(make_shared<Executor>(milliseconds(10), invoker_))
     {}
 
 protected:
@@ -283,3 +283,29 @@ TEST_F(WaitablesTest, TimedWaitableThatExpiresForDifferentReason)
     g(); // Time-out
 }
 
+TEST_F(WaitablesTest, TimedWaitableThatExpiresWithZeroPoller)
+{
+    auto zeroPoller = make_shared<Executor>(milliseconds(0), invoker_);
+
+    auto waitable = make_unique<TimedWaitableMock>(microseconds(3));
+
+    EXPECT_CALL(*waitable, timedWait(microseconds(0)))
+        .Times(3)
+        .WillRepeatedly(Return(false));
+
+    EXPECT_CALL(*waitable, dispatch(NotNull()))
+        .Times(1);
+
+    function<void()> f, g;
+    EXPECT_CALL(*invoker_, invoke(_))
+        .WillOnce(SaveArg<0>(&f))
+        .WillOnce(SaveArg<0>(&g));
+
+    zeroPoller->watch(move(waitable));
+
+    f(); // Poll
+    f(); // Poll
+    f(); // Poll
+    f(); // Poll
+    g(); // Time-out
+}

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <string>
 
@@ -50,7 +51,7 @@ public:
             return true;
         }
 
-        waitLimit_ -= timeout;
+        waitLimit_ -= std::max(timeout, std::chrono::microseconds(1));
         return false;
     }
 
