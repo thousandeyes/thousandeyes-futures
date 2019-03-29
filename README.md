@@ -1,5 +1,5 @@
 # `thousandeyes::futures`
-> Continuations for C++11 std::future<> types
+> Continuations for C++ std::future<> types
 
 `thousandeyes::futures` is a self-contained, header-only, cross-platform library for attaching continuations to `std::future` types and adapting multiple `std::future` objects into a single `std::future` object.
 
@@ -8,7 +8,7 @@ The library is tested on and should work on the following platforms:
 * Linux with g++ 5.5.0 or newer
 * Windows with VS 2017 or newer
 
-Currently, the library requires a C++14-capable compiler, however, the plan is to target C++11 before open-sourcing it.
+Currently, the library requires a C++14-capable compiler. Nonetheless, it can be ported to C++11 if projects that want to use the library cannot be upgraded to C++14.
 
 ## Table of Contents
 
@@ -26,17 +26,16 @@ Currently, the library requires a C++14-capable compiler, however, the plan is t
   * [Running the Tests](#running-the-tests)
 * [Using thousandeyes::futures in Existing Projects](#using-thousandeyesfutures-in-existing-projects)
   * [Cmake](#cmake)
-  * [Conan.io Package](#conanio-package)
-  * [Pre-published Conan Package](#pre-published-conan-package)
-  * [Custom Conan Package](#custom-conan-package)
+  * [Conan.io package](#conanio-package)
+  * [Publishing the library](#publishing-the-library)
 * [Performance](#performance)
-  * [Methodology](#methodology)
-  * [Results](#results)
+  * [Comparing to other methods](#comparing-to-other-methods)
+  * [Comparing to other Executors](#comparing-to-other-executors)
   * [Discussion](#discussion)
 * [Specialized Use Cases](#specialized-use-cases)
-  * [Setting and handling the time limit](#setting-and-handling-the-time-limit)
-  * [Implementing alternative Executors](#implementing-alternative-executors)
-  * [Implementing alternative dispatchers for the PollingExecutor&lt;&gt;](#implementing-alternative-dispatchers-for-the-pollingexecutor)
+  * [Setting and handling timeouts](#setting-and-handling-timeouts)
+  * [Implementing alternative executors](#implementing-alternative-executors)
+  * [Implementing alternative invokers for the PollingExecutor](#implementing-alternative-invokers-for-the-pollingexecutor)
   * [Using the library with boost::asio](#using-the-library-with-boostasio)
   * [Using iterator adapters](#using-iterator-adapters)
 * [Contributing](#contributing)
@@ -87,9 +86,9 @@ There are five concepts/aspects of the `thousandeyes::futures` library that can 
 
 The `Executor` is the component responsible for waiting on and providing values to the `std::future` objects that are handled by the `thousandeyes::futures` library. Before attaching continuations to `std::future` types, an instance of a concrete implementation of the `Executor` interface has to be created as a shared pointer (`shared_ptr<Executor>`).
 
-The library provides a simple, default implementation of the `Executor` interface called `DefaultExecutor`. Clients of the library, however, may choose to implement and use their own executor(s) if the provided `DefaultExecutor` is not a good fit for the project (see section ???).
+The library provides a simple, default implementation of the `Executor` interface called `DefaultExecutor`. Clients of the library, however, may choose to implement and use their own executor(s) if the provided `DefaultExecutor` is not a good fit for the project (see section [Performance](#performance)).
 
-The `DefaultExecutor` uses two `std::thread` threads: one thread to poll all the active `std::future` objects that have continuations attached to them and one that is used to invoke the continuations once the futures become ready. It polls the active `std::future` objects with the timeout given in component's constructor.
+The `DefaultExecutor` uses two `std::thread` threads: one thread that polls all the active `std::future` objects that have continuations attached to them and one that is used to invoke the continuations once the futures become ready. It polls the active `std::future` objects with the timeout given in the component's constructor.
 
 In the above example, the polling timeout is 10 ms, which means that `DefaultExecutor` will wait for 10 ms for each `std::future` to get ready. If a specific `std::future` gets ready before the timeout expires, it gets "dispatched" - meaning that the attached continuation gets invoked (on another thread). If the `std::future` is not ready after the given timeout, the `DefaultExecutor` will start waiting on the next `std::future` object and will come back to the first one after it finishes with all the others (i.e., when it dispaches or when the timeout expires on them).
 
@@ -209,11 +208,11 @@ Calling the `std::future::get()` method of an `std::future` object returned by t
 1. When the continuation function throws an exception `E` when invoked
 2. When the continuation function returns an `std::future` object that becomes ready with an exception `E`
 3. When the `Executor` object is stopped
-4. When the total wait time on the input future exceeds the library's `Time Limit` (see section ???)
+4. When the total wait time on the input future exceeds the library's `Time Limit`
 
 In the first two cases, `std::future::get()` re-throws the same the exception `E`, whereas in the last two cases it throws a `WaitableWaitException` and its subclass, `WaitableTimedOutException`, respectively.
 
-Calling the `std::future::get()` method of an `std::future` object returned by the `all()` function throws only when the associated `Executor` object is stopped and when the total wait time on an input future exceeds the library's `Time Limit` (see section ???). In these cases, the method throws a `WaitableWaitException` and its subclass, `WaitableTimedOutException`, respectively.
+Calling the `std::future::get()` method of an `std::future` object returned by the `all()` function throws only when the associated `Executor` object is stopped and when the total wait time on an input future exceeds the library's `Time Limit` (see section [Setting and handling the time limit](#setting-and-handling-the-time-limit)). In these cases, the method throws a `WaitableWaitException` and its subclass, `WaitableTimedOutException`, respectively.
 
 ### Stopping executors
 
@@ -221,7 +220,7 @@ Explicitly stopping an `Executor` instance does two things:
 1. It cancels all pending wait operations on all the associated input `std::future` objects
 2. It sets the `Executor` object into an invalid state where it cannot be used anymore to wait on and dispatch `std::future` objects
 
-The `DefaultExecutor` implementation, used in all the examples above, (a) sets the `WaitableWaitException` on all the pending `std::future` objects associated with it and (b) joins the two threads that are used to poll and dispatch the associated `std::future` objects respectively. For more information about the implementation of the `DefaultExecutor`, see section ???.
+The `DefaultExecutor` implementation, used in all the examples above, (a) sets the `WaitableWaitException` on all the pending `std::future` objects associated with it and (b) joins the two threads that are used to poll and dispatch the associated `std::future` objects respectively. For more information on providing concrete `Executor` implementations, see section [Implementing alternative Executors](#implementing-alternative-executors).
 
 ## Motivation
 
@@ -317,13 +316,9 @@ In any case, then, the library can be set as a target link library with the alia
 target_link_libraries(my-target PRIVATE thousandeyes::futures)
 ```
 
-### Conan.io Package
+### Conan.io package
 
-There are two alternatives for obtaining and using the library via the `conan.io` package manager:
-1. Use the published package directly from `conan-center` (TODO: Upload the library there ???)
-2. Build, publish and use a `thousandeyes-futures` package from an internal conan server
-
-Regardless of which of the above two alternatives is chosen, the library can be integrated into the existing project using the project's build system and the macros/variables generated by `conan`.
+The library can be built and published into a `conan.io` -compatible repository. Regardless of where it is published, the library can be integrated into the existing project using the project's build system and the macros/variables generated by `conan`.
 
 When the configured `conan` generator is `cmake`, the library can be integrated either via the `conan`-generated cmake macros or, alternatively, via the `find_package()` macro that imports the target library with the `thousandeyes::futures` alias:
 
@@ -331,36 +326,15 @@ When the configured `conan` generator is `cmake`, the library can be integrated 
 find_package(ThousandEyesFutures)
 ```
 
-Subsequently, the library can be added as link target to the other `cmake` targets. For example, the following command adds the library as a private dependency to the `my-target` target:
+Subsequently, the library can be added as link target to the other `cmake` targets. For example, the following command adds the library as a public dependency to the `my-target` target:
 
 ```cmake
-target_link_libraries(my-target PRIVATE thousandeyes::futures)
+target_link_libraries(my-target PUBLIC thousandeyes::futures)
 ```
 
-#### Pre-published Conan Package
+#### Publishing the library
 
-The `thousandeyes::futures` library can be obtained from the `conan-center` remote, simply by requiring it from its stable channel.
-
-If the project uses a `conanfile.py` file, the library can be required as follows:
-
-```python
-from conans import ConanFile
-
-class MyConanFile(ConanFile):
-    def requirements(self):
-        self.requires("thousandeyes-futures/0.1@jgeorgal/stable")
-```
-
-If the project uses a `conanfile.txt`, the equivalent statement is the following:
-
-```ini
- [requires]
- thousandeyes-futures/0.1@jgeorgal/stable
-```
-
-#### Custom Conan Package
-
-Alternatively the library can be published to an internal `conan.io` server. The first step to doing that is making sure that the internal server is set as a `conan` `remote`.
+The library can be published to a `conan.io` repository. The first step to doing that is making sure that the internal or external repository is set as a `conan` `remote`.
 
 For example the following command adds the server `http://conanrepo.example.com:9300` as conan remote called `origin`:
 
@@ -397,124 +371,175 @@ Or a `conanfile.txt`:
 
 ## Performance
 
-After testing and benchmarking `thousandeyes::futures::then()` implementation against other more specialized implementations that provide more direct approaches to achieve the same result, it seems that the `DefaultExecutor` with a `q` value of 10 ms achieves a good balance between efficient use of resources and raw performance against the other, specialized `then()` implementation.
+This subsection includes the results and a discussion about the performance of the default `thousandeyes::futures::then()` implementation. In this context "default implementation" refers to the the implementation of `thousandeyes::futures::then()` using the provided `DefaultExecutor`, which, in turn, is the default, concrete implementation of the `Executor` component based on the `PollingExecutor` strategy.
 
-### Methodology
+After testing and benchmarking the default implementation (a) against other, more direct approaches for detecting when the set of active futures become ready and (b) against other implementations of the `Executor` component, it appears that the `DefaultExecutor` with a `q` value of 10 ms achieves a good balance between efficient use of resources and raw performance.
 
-The proposed, default implementation of `then()`, using the `DefaultExecutor`, was benchmarked against the following alternative implementations:
+### Comparing to other methods
 
-1. A `blocking_then()` implementation that eagerly calls `future::get()` and blocks to get the result (serves as the baseline for benchmarks)
+The proposed, default implementation of `then()`, using the `DefaultExecutor` (`default_then()`), was benchmarked against the following alternative implementations:
+
+1. A `blocking_then()` implementation that eagerly calls `future::get()` and blocks to get the result before moving to the next future (serves as the baseline)
 2. An `unbounded_then()` implenentation that creates a new thread per-invocation that waits for the result via `future::wait()`
 3. An `asio_then()` implementation that dispatches a function via `boost::asio::io_context::post()` per-invocation, which, in turn, waits for the result via `future::wait()` and uses 50 threads to run `boost::asio::io_context::run()`
-4. The proposed, default polling `then()` implementation that polls all the active futures for completion using only one thread (and zero threads if there are no futures active)
 
-TODO: include here the code for the aforementioned alternative `then()` implementations ???
+Whereas the other approaches (apart from `blocking_then()`) use many threads, the `default_then()` implementation uses at most two threads. One thread for polling all the active futures for completion status and one thread for dispatching the continuations.
 
-All the implementations above were executed and timed on MacOS (TODO: Run also on windows ???).
+Also all the futures that were used for the benchmark were independent - i.e., they did not depend on other futures to complete before completing themselves. The code that benchmarked the different methods was equivalent to the following:
 
-All the benchmark programs used a `boost::asio::io_context`-based thread-pool for the implementation of the `getValueAsync()` function, since macOS caps the number of threads that can be instantiated. On the testing system, after about 2,000 threads the `thread::thread()` constructor throwed an exception with the following message:
+```c++
+template<class T>
+future<T> getValueAsync(int i)
+{
+    promise<T> p;
+    auto result = p.get_future();
 
+    ioService.post([p=move(p), i]() {
+        int g = 500000 - i * 5;
+        sleep_for(microseconds(g));
+        p.set_value(i);
+    });
+
+    return result;
+}
+
+void useCase()
+{
+    vector<future<string>> f;
+    for (int i = 0; i < 1900; ++i) {
+        f.push_back(then(getValueAsync(i), [](future<int> f) {
+            return to_string(f.get());
+        }));
+    }
+
+    for (int i = 0; i < 1900; ++i) {
+        auto result = f[i].get();
+        assert(result == to_string(i));
+    }
+}
+```
+
+The testing system was a 2016 MacBook Pro with 2.4 GHz Intel Core i7 CPU and 16 GB 1867 MHz LPDDR3 RAM. All the programs used a `boost::asio::io_context`-based thread-pool with 100 threads for the implementation of the `getValueAsync()` function, since macOS caps the number of threads that can be instantiated. On the testing system, after about 2,000 threads the `thread::thread()` constructor throwed an exception with the message:
 > thread constructor failed: Resource temporarily unavailable
 
-### Results
-
-In general, among the aforementioned implementations, `unbounded_then()`, `asio_then()` and `polling_then(q = 10ms)` achieve very similar performance. Among those, however, the `polling_then(q = 10ms)` implementation uses the fewest resources: (at-most) one thread for polling.
-
-The results are sumarized in the table below:
+In general, among the aforementioned implementations, `unbounded_then()`, `asio_then()` and `default_then(q = 10ms)` exhibit very similar performance characteristics. The results are summarized in the table below:
 
 | Implementation            | Result (`total` / `user` / `system` / `%cpu`) |
 | ------------------------- | --------------------------------------------- |
 | `blocking_then()`         | `15:46.81`/ `0.14s` / `0.19s` / `0%`          |
 | `unbounded_then()`        | `00:09.52`/ `0.23s` / `0.24s` / `4%`          |
 | `asio_then()`             | `00:09.50`/ `0.04s` / `0.06s` / `1%`          |
-| `polling_then(q = 0ms)`   | `00:09.45`/ `1.72s` / `8.12s` / `104%`        |
-| `polling_then(q = 1ms)`   | `00:09.48`/ `0.20s` / `0.30s` / `5%`          |
-| `polling_then(q = 10ms)`  | `00:09.48`/ `0.06s` / `0.08s` / `1%`          |
-| `polling_then(q = 500ms)` | `00:09.53`/ `0.04s` / `0.05s` / `0%`          |
+| `default_then(q = 0ms)`   | `00:09.45`/ `1.72s` / `8.12s` / `104%`        |
+| `default_then(q = 1ms)`   | `00:09.48`/ `0.20s` / `0.30s` / `5%`          |
+| `default_then(q = 10ms)`  | `00:09.48`/ `0.06s` / `0.08s` / `1%`          |
+| `default_then(q = 500ms)` | `00:09.53`/ `0.04s` / `0.05s` / `0%`          |
 
-TODO: Run `asio_then()` with more/less threads and benchmark ???
+### Comparing to other Executors
 
-The raw results from timing the aforementioned implementations can be seen below:
+The `DefaultExecutor` was subsequently tested against different `Executor` implementations under two different use cases. The first use case, like before, only generates independent futures. The second use case, on the other hand, generates a long chain of interdependent futures where a specific future becomes ready only when all the futures generated after it become ready.
 
-1. blocking_then (baseline)
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkBlockingThen'
-FutureTest.DISABLED_benchmarkBlockingThen (946795 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.14s user 0.19s system 0% cpu 15:46.81 total
+Specifically, the first use case, that utilizes `std::async()` to simulate asynchronous work and sleeps for a time period uniformely distributed in the `[5, 5_000_000]` `usec` interval can be seen below:
+
+```c++
+template<class T>
+future<T> getValueAsync(const T& value)
+{
+    static mt19937 gen;
+    static uniform_int_distribution<int> dist(5, 5000000);
+
+    return std::async(std::launch::async, [value]() {
+        this_thread::sleep_for(microseconds(dist(gen)));
+        return value;
+    });
+}
+
+void usecase0()
+{
+    vector<future<string>> results;
+    for (int i = 0; i < 1900; ++i) {
+        results.push_back(then(getValueAsync(i), [](future<int> f) {
+            return to_string(f.get());
+        }));
+    }
+
+    for (int i = 0; i < 1900; ++i) {
+        auto result = results[i].get();
+        assert(result == to_string(i));
+    }
+}
 ```
 
-2. unbounded_then
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkUnboundedThen'
-FutureTest.DISABLED_benchmarkUnboundedThen (9497 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.23s user 0.24s system 4% cpu 9.526 total
+The second use case generates a long chain of interdependent futures by using two pseudo mutually recursive functions `recFunc1` and `recFunc2`. The first function generates a future that is ready when the future returned from the second function becomes ready, which in turn becomes ready when the future returned by the first function becomes ready. Specifically, the code for the second use case can be seen below:
+
+```c++
+bool usecase1()
+{
+    auto f = recFunc1(0);
+    int result = f.get();
+    assert(result == 1821);
+}
+
+future<int> recFunc1(int count)
+{
+    auto h = std::async(std::launch::async, [count]() {
+        this_thread::sleep_for(milliseconds(1));
+        return count + 1;
+    });
+
+    return then(move(h), [](future<int> g) {
+        return recFunc2(move(g));
+    });
+}
+
+future<int> recFunc2(future<int> f)
+{
+    auto count = f.get();
+
+    if (count == 100) {
+        return fromValue(1821);
+    }
+
+    auto h = std::async(std::launch::async, []() {
+        this_thread::sleep_for(milliseconds(1));
+    });
+
+    return then(move(h), [count](future<void> g) {
+        g.get();
+        return recFunc1(count);
+    });
+}
 ```
 
-3. asio_then
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkThen'
-FutureTest.DISABLED_benchmarkThen (9484 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.04s user 0.06s system 1% cpu 9.502 total
-```
+The two `Executor` implementations that were benchmarked against the `DefaultExecutor` were the `BlockingExecutor` (baseline) and the `UnboundedExecutor` (see also section [Implementing alternative Executors](#implementing-alternative-executors)).
 
-4. polling_then (with q = 0ms)
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkPollingThen'
-FutureTest.DISABLED_benchmarkPollingThen (9438 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    1.72s user 8.12s system 104% cpu 9.459 total
-```
+Whereas for the first use case (independent futures) the `DefaultExecutor` of any `q != 0` value behaves similarly to `UnboundedExecutor`, the second use case exposes a pathological case for the `DefaultExecutor`. When all active futures are interdependent, `DefaultExecutor` hits its theoretical worst-case performance. This can be easily seen in the table below:
 
-5. polling_then (with q = 1ms)
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkPollingThen'
-FutureTest.DISABLED_benchmarkPollingThen (9459 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.20s user 0.30s system 5% cpu 9.482 total
-```
+| `Executor` Implementation    | Result 0 (`total` / `user` / `system` / `%cpu`) | Result 1 (`total` / `user` / `system` / `%cpu`) |
+| ---------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| `BlockingExecutor`           | `77:31.90`/ `0.20s` / `0.33s` / `0%`            | See `note 1`                                    |
+| `UnboundedExecutor`          | `00:5.696`/ `0.50s` / `0.58s` / `18%`           | `00:0.301`/ `0.03s` / `0.06s` / `30%`           |
+| `DefaultExecutor(q = 0ms)`   | `00:5.168`/ `5.28s` / `0.17s` / `105%`          | `00:0.283`/ `0.27s` / `0.03s` / `105%`          |
+| `DefaultExecutor(q = 1ms)`   | `00:5.141`/ `0.29s` / `0.26s` / `10%`           | `00:26.71`/ `0.40s` / `0.43s` / `3%`            |
+| `DefaultExecutor(q = 10ms)`  | `00:5.156`/ `0.23s` / `0.23s` / `8%`            | `03:47.96`/ `0.45s` / `0.46s` / `0%`            |
+| `DefaultExecutor(q = 100ms)` | `00:5.252`/ `0.24s` / `0.22s` / `8%`            | `33:52.91`/ `0.50s` / `0.46s` / `0%`            |
+| `DefaultExecutor(q = 500ms)` | `00:5.415`/ `0.24s` / `0.23s` / `8%`            | See `note 2`                                    |
 
-6. polling_then (with q = 10ms)
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkPollingThen'
-FutureTest.DISABLED_benchmarkPollingThen (9474 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.06s user 0.08s system 1% cpu 9.489 total
-```
+* `note 1`: Since the futures are interdependent, the `BlockingExecutor` cannot complete
+* `note 2`: It takes too long to finish, about `5 * DefaultExecutor(q = 100ms)`
 
-7. polling_then (with q = 50ms)
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkPollingThen'
-FutureTest.DISABLED_benchmarkPollingThen (9491 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.05s user 0.08s system 1% cpu 9.510 total
-```
-
-8. polling_then (with q = 100ms)
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkPollingThen'
-FutureTest.DISABLED_benchmarkPollingThen (9490 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.05s user 0.07s system 1% cpu 9.506 total
-```
-
-9. polling_then (with q = 200ms)
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkPollingThen'
-FutureTest.DISABLED_benchmarkPollingThen (9481 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.04s user 0.07s system 1% cpu 9.505 total
-```
-
-10. polling_then (with q >= 500ms)
-```sh
-time ./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test --gtest_also_run_disabled_tests --gtest_filter='FutureTest.DISABLED_benchmarkPollingThen'
-FutureTest.DISABLED_benchmarkPollingThen (9512 ms)
-./buildenterprise/common/unibrow/srctest/Debug/unibrow-test-future-test    0.04s user 0.05s system 0% cpu 9.533 total
-```
+The full source code used for this benchmark can be seen in `examples/executors.cpp`.
 
 ### Discussion
 
-The theoretical time-to-detect-ready lag, i.e., the time period from the exact moment the future becomes ready until the moment it is dispatched, is `O(q * N)`, where `N` is the number of active futures associated with a specific `Executor` instance. The worst possible delay, asymptotically `q * N`, can happen if the future becomes ready immediately after it is polled and, then, all the other active futures associated with the same `Executor` do not get ready when polled.
+When the active futures are independent, the theoretical time-to-detect-ready lag, i.e., the time period from the exact moment the future becomes ready until the moment it is dispatched, is `q * O(N)`, where `N` is the number of active futures associated with a specific `Executor` instance. The worst possible delay can happen if the future becomes ready immediately after it is polled and, then, all the other active futures associated with the same `Executor` do not get ready when polled.
 
-As mentioned before, a `q` value of 10 ms seems to be a very good compromise between raw, real-world performance and cpu utilization. In usage scenarios, where there will be only a few hundred `std::futures` active at any given time, the worst possible time-to-detect-ready lag will only be a few seconds. Moreover, the proposed `then()`'s implementation is scalable. In usage scenarios where the number of active futures is an order of magnitute bigger, the active futures can be distributed over many different `Executor` instances.
+When the active futures do not complete independently, the theoretical time-to-detect-ready lag of `DefaultExecutor` increases to `q * O(N^2)`, where `N` is the number of active interdependent futures. The second use case of the previous subsection (see [Comparing to other Executors](#comparing-to-other-executors)) achieves the worst possible delay by creating a long chain of active futures where each future depends on the future generated after it.
 
-The way the `thousandeyes::futures` library is currently used in internal projects, even a few seconds of delay is perfectly fine since the main goal is increasing the parallelization potential of the underlying system and not make measurements. The proposed library achieves that goal with very few resources.
+Regardless of the aforementioned extreme cases, the `DefaultExecutor` with a `q` value of 10 ms appears to be a very good compromise between raw, real-world performance and resource utilization. In typical usage scenarios, where there will be a few hundred `std::future` instances active at any given time, mostly independent, the worst possible time-to-detect-ready lag will only be a few seconds. Moreover, the proposed implementation allows for easily scaling the monitoring and dispatching of the active futures. In usage scenarios where the number of active futures is orders of magnitute bigger, the active futures can be distributed over many different `Executor` instances.
 
-Nonetheless, `thousandeyes::futures` should not be used for measuring events via continuations, especially if those measurements need millisecond (or better) accuracy. For example, measurements like the following would not provide the required accuracy:
+The way the `thousandeyes::futures` library is currently used in internal projects, a few seconds of delay is perfectly fine since the main goal is increasing the parallelization potential of the underlying system and not make measurements. The proposed library achieves that goal with very modest cpu and memory requirements.
+
+Nonetheless, `thousandeyes::futures` should not be used for measuring events via continuations, especially if those measurements need millisecond (or better) accuracy. For example, measurements like the following would not provide the required accuracy when using the `DefaultExecutor`:
 
 ```c++
 Stopwatch<steady_clock> sw;
@@ -525,31 +550,345 @@ then(connect(host, port, use_future), [sw] {
 
 ## Specialized Use Cases
 
-TODO ???
+The `thousandeyes::futures` library provides overloads for its `then()` and `all()` functions (a) for explicitly specifying the `Executor` instance that will be used to monitor the input `std::future` and dispatch the attached continuation and (b) for setting timeouts after which the library gives up waiting for the input future(s) to become ready.
 
-### Setting and handling the time limit
+Moreover, following the performance discussion in the previous section, the library can be extended to support more specialized use cases by either providing completely different concrete implementations of the `Executor` interface or by providing different invokers for the existing `PollingExecutor`.
 
-TODO ???
+### Setting and handling timeouts
 
-### Implementing alternative `Executor`s
+Both the `thousandeyes::futures::then()` and `thousandeyes::futures::all()` functions accept a `timeLimit` value as their first or second argument, depending on whether the `Executor` is given explicitly or not. This value sets a timeout after which the input (given) future(s) stop being monitored and the resulting (output) future becomes ready with the `thousandeyes::futures::WaitableTimedOutException` exception.
 
-TODO ???
+Specifically, the signatures of the functions that include the `timeLimit` parameter are the following:
 
-### Implementing alternative dispatchers for the `PollingExecutor<>`
+```c++
+future<...> then(std::shared_ptr<Executor> executor, std::chrono::microseconds timeLimit, ...);
+future<...> then(std::chrono::microseconds timeLimit, ...);
+```
 
-TODO ???
+```c++
+future<...> all(std::shared_ptr<Executor> executor, std::chrono::microseconds timeLimit, ...);
+future<...> all(std::chrono::microseconds timeLimit, ...);
+```
+
+Therefore, when a timeout is specified when attaching a continuation to an input `std::future` object, if the latter is not ready after `dt`, where `dt >= timeLimit`, then the resulting (output) `std::future` object will become ready with the library's `WaitableTimedOutException` exception.
+
+This behavior is clearly shown in the example below:
+
+```c++
+void timeout0()
+{
+    future<void> f = sleepAsync(hours(5));
+
+    auto g = then(milliseconds(100), move(f), [](future<void> f){
+        f.get(); // This will never get called
+    });
+
+    try {
+        g.get(); // This will throw a timeout exception
+    }
+    catch (const WaitableTimedOutException& e) {
+        cout << "Got exception: " << e.what() << endl;
+    }
+}
+```
+
+On the other hand, when a timeout is specified at the `all()` adapter, if any of the input `std::future` objects is not ready after `dt`, where `dt >= timeLimit`, then the resulting (output) `std::future` object will become ready with the library's `WaitableTimedOutException` exception.
+
+Again, this behavior is clearly shown in the example below:
+
+```c++
+void timeout1()
+{
+    auto f = all(milliseconds(100), sleepAsync(milliseconds(0)), sleepAsync(hours(5)));
+
+    auto g = then(move(f), [](future<tuple<future<void>, future<void>>> f){
+        try {
+            f.get(); // This will throw a timeout exception
+        }
+        catch (const WaitableTimedOutException& e) {
+            cout << "Got exception: " << e.what() << endl;
+        }
+    });
+
+    g.get(); // This will not throw since the exception was handled in the continuation
+}
+```
+
+If no explicit `timeLimit` is given by the client code, the library's `then()` and `all()` functions implicitly set their `timeLimit` to one hour.
+
+A full example that showcases timeouts when using the library can be found in `examples/timeout.cpp`.
+
+### Implementing alternative executors
+
+As also mentioned in the sections above, the `Executor` is responsible for monitoring all the input futures until they become ready. As soon as the `Executor` detects that a future is ready, it is responsible for dispatching it. All the aforementioned input future objects are adapted by the `then()` and `all()` functions to objects that implement the library's `Waitable` interface.
+
+The `Waitable` interface is defined as follows:
+
+```c++
+class Waitable {
+public:
+    virtual ~Waitable() = default;
+
+    virtual bool wait(const std::chrono::microseconds& timeout) = 0;
+
+    virtual void dispatch(std::exception_ptr err = nullptr) = 0;
+};
+```
+
+The interface's `wait()` method is equivalent to the `std::future::wait_for()` method and returns `true` if the `Waitable` object is ready for dispatching and `false` otherwise. The `dispatch()` method with a `nullptr` argument is equivalent to the `std::future::set_value()` method, whereas with a non-`nullptr` argument, it is equivalent to the `std::future::set_exception()` method.
+
+Then, an `Executor` receives `Waitable` objects to monitor via its `watch()` method. `Executor` should also define a `stop()` method for suspending its normal operation and dispatching all non-ready `Waitable` objects with a `WaitableWaitException` exception.
+
+Specifically, the interface of the `Executor` component is defined as follows:
+
+```c++
+class Executor {
+public:
+    virtual ~Executor() = default;
+
+    virtual void watch(std::unique_ptr<Waitable> w) = 0;
+
+    virtual void stop() = 0;
+};
+```
+
+An example of a simple, limited but complete and fully conforming `Executor` is the `BlockingExecutor` which can be implemented as follows:
+
+```c++
+class BlockingExecutor : public Executor {
+public:
+    void watch(std::unique_ptr<Waitable> w)
+    {
+        try {
+           while (active_) {
+               if (!w->wait(minutes(1))) {
+                   continue;
+               }
+
+                w->dispatch();
+                return;
+           }
+
+           w->dispatch(make_exception_ptr(WaitableWaitException("Executor stoped")));
+        }
+        catch (...) {
+            w->dispatch(current_exception());
+        }
+    }
+
+    void stop()
+    {
+        active_ = false;
+    }
+
+private:
+    atomic<bool> active_{ true };
+};
+```
+
+The `BlockingExecutor` above has the following characteristics:
+1. A shared `BlockingExecutor` object is thread-safe
+2. It monitors the given `Waitable` objects until they become ready
+3. It dispatches the monitored `Waitable` objects without an error if they do not `throw`
+4. It dispatches the monitored `Waitable` objects with an error if an exception is thrown
+5. The invocation of its `stop()` method results in (eventually) halting the monitoring of the `Waitable` objects and dispatching them with the `WaitableWaitException` exception
+
+The `UnboundedExecutor`, below, has the same characteristics:
+
+```c++
+class UnboundedExecutor : public Executor {
+public:
+    void watch(std::unique_ptr<Waitable> w)
+    {
+        lock_guard<mutex> lock(threadListMutex_);
+
+        threads_.emplace_back([this, w=move(w)]() {
+            try {
+                while (active_) {
+                    if (!w->wait(minutes(1))) {
+                        continue;
+                    }
+
+                    w->dispatch();
+                    return;
+                }
+
+                w->dispatch(make_exception_ptr(WaitableWaitException("Executor stoped")));
+            }
+            catch (...) {
+                w->dispatch(current_exception());
+            }
+        });
+    }
+
+    void stop()
+    {
+        active_ = false;
+
+        lock_guard<mutex> lock(threadListMutex_);
+
+        for (auto& t: threads_) {
+            if (t.joinable() && t.get_id() != this_thread::get_id()) {
+                t.join();
+            }
+        }
+    }
+
+private:
+    atomic<bool> active_{ true };
+
+    mutex threadListMutex_;
+    vector<thread> threads_;
+};
+```
+
+Aparently, the `UnboundedExecutor` is a much more powerful executor, able to handle more complex `std::future` dependencies (see [Comparing to other Executors](#comparing-to-other-executors)) at the expense of utilizing more resources.
+
+A full example that implements and uses the executors above can be found in `examples/executors.cpp`.
+
+### Implementing alternative invokers for the `PollingExecutor`
+
+The library's `DefaultExecutor` is based on the `PollingExecutor` strategy, which is implemented as a template class with the actual functors that invoke the polling and dispatching threads as template parameters.
+
+The `PollingExecutor` is defined as follows:
+
+```c++
+template<class TPollFunctor, class TDispatchFunctor>
+class PollingExecutor : public Executor {
+public:
+    PollingExecutor(std::chrono::microseconds q);
+
+    PollingExecutor(std::chrono::microseconds q,
+                    TPollFunctor&& pollFunc,
+                    TDispatchFunctor&& dispatchFunc);
+};
+```
+
+Then, the `DefaultExecutor`, used in all the examples and tests within the `thousandeyes::futures` library, is defined as follows:
+
+```c++
+using DefaultExecutor = PollingExecutor<detail::InvokerWithNewThread,
+                                        detail::InvokerWithSingleThread>;
+```
+
+As seen in section [Performance](#performance), the `DefaultExecutor` with a reasonable `q` parameter, achieves very good real-world performance with very low resource utilization. The invokers, used by the `DefaultExecutor`, however, may not be appropriate for every project, especially when a project is using its own thread-pools or uses the thread-pools of a third-party library. In those cases, the `PollingExecutor` can be integrated via a custom implementation of the `Invoker` concept.
+
+An `Invoker` implementation must be a functor with `start()` and `stop()` methods like below:
+
+```c++
+struct Invoker {
+    void start();
+    void stop();
+    void operator()(std::function<void()> f);
+};
+```
+
+A real world `Invoker` that enables the `PollingExecutor` to use `boost::asio`-based thread-pools can be simply defined as follows:
+
+```c++
+class AsioInvoker {
+public:
+    explicit AsioInvoker(boost::asio::io_service& ioService) :
+        ioService_(ioService)
+    {}
+
+    inline void start() {}
+
+    inline void stop() {}
+
+    inline void operator()(std::function<void()> f)
+    {
+        ioService_.post(std::move(f));
+    }
+
+private:
+    boost::asio::io_service& ioService_;
+};
+```
+
+The way the `AsioInvoker` above can be used by the `PollingExecutor` is shown in a complete example in the next subsection (see [Using the library with boost::asio](#using-the-library-with-boostasio)).
+
+The implementation of the invokers used by the `DefaultExecutor` can be seen in the following source files:
+* `detail/InvokerWithNewThread.h`
+* `detail/InvokerWithSingleThread.h`
 
 ### Using the library with `boost::asio`
 
-TODO ???
+As mentioned before, the library's `PollingExecutor` can be easily extended to use other third party threads and thread-pools for the polling the input futures and invoking the continuations.
 
-1. Add implementation of `Executor` using `boost::asio::io_context`
-2. Add implementation of `PollingExecutor<>` using `boost::asio::io_context`
-3. Implement one or more of `boost::asio`'s examples using the library instead of callbacks
+This is the full implementation of the `DefaultPollingExecutor` that uses `boost::asio::io_service`-based thread-pool to start the monitoring thread and dispatch the continuations:
+
+```c++
+#pragma once
+
+#include <chrono>
+#include <functional>
+#include <utility>
+
+#include <boost/asio/io_service.hpp>
+
+#include <thousandeyes/futures/PollingExecutor.h>
+
+class AsioInvoker {
+public:
+    explicit AsioInvoker(boost::asio::io_service& ioService) :
+        ioService_(ioService)
+    {}
+
+    inline void start() {}
+
+    inline void stop() {}
+
+    inline void operator()(std::function<void()> f)
+    {
+        ioService_.post(std::move(f));
+    }
+
+private:
+    boost::asio::io_service& ioService_;
+};
+
+class DefaultPollingExecutor :
+    public thousandeyes::futures::PollingExecutor<AsioInvoker, AsioInvoker> {
+public:
+    DefaultPollingExecutor(std::chrono::microseconds q,
+                           boost::asio::io_service& pollingIoService,
+                           boost::asio::io_service& dispatchIoService) :
+        PollingExecutor(std::move(q),
+                        detail::AsioInvoker(pollingIoService),
+                        detail::AsioInvoker(dispatchIoService))
+    {}
+};
+```
+
+Moreover, `boost::asio` can return `std::future` objects from all its asynchronous operations by using the `boost::asio::use_future` directive. In the example below, both `t` and `endpoints` are `std::future<>` objects:
+
+```c++
+    boost::asio::io_service io;
+
+    boost::asio::steady_timer timer(io);
+
+    timer.expires_after(seconds(1));
+    future<void> t = timer.async_wait(boost::asio::use_future);
+
+    boost::asio::udp::resolver resolver(io);
+
+    auto endpoints = resolver.async_resolve(boost::asio::udp::v4(),
+                                            "host.example.com",
+                                            "daytime",
+                                            boost::asio::use_future);
+```
+
+A more complete example is provided by `boost::asio` at the link below:
+https://www.boost.org/doc/libs/1_66_0/doc/html/boost_asio/example/cpp11/futures/daytime_client.cpp
+
+Of course, all `std::future<>` objects, returned by `boost::asio` methods and functions can be used by `thousandeyes::futures` via its `then()` and `all()` functions.
 
 ### Using iterator adapters
 
-TODO ???
+In certain use-cases it may be impossible to move the ownership of a container of futures to the library. Furthermore a container may want to encapsulate `std::future` objects as members in its internal structures. For those cases, the `thousandeyes::futures::all()` function has an overload that accepts iterators to futures as arguments.
+
+Then, iterator adapters can be used to adapt iterators to internal structures to iterators to futures as required by the library. The complete example below, which uses the `boost::iterator::transform_iterator` type shows how everything must be set up for these particular use cases:
 
 ```c++
 #include <functional>
@@ -560,6 +899,7 @@ TODO ???
 #include <boost/iterator/transform_iterator.hpp>
 
 #include <thousandeyes/futures/DefaultExecutor.h>
+#include <thousandeyes/futures/all.h>
 #include <thousandeyes/futures/then.h>
 
 using boost::transform_iterator;
