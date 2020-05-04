@@ -28,7 +28,7 @@ public:
     {}
 };
 
-//! \brief A Waitable Interface to represent objects hose wait() method
+//! \brief A Waitable Interface to represent objects whose wait() method
 //! can throw a #WaitableTimedOutException if the object is not ready
 //! and the #Waitable object's deadline has been exceeded.
 class TimedWaitable : public Waitable {
