@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <chrono>
 #include <string>
 
@@ -29,47 +28,54 @@ public:
     {}
 };
 
-//! \brief A Waitable Interface to represent objects that can be waited on, that
-//! can time-out and, finally, that can get dispatched.
+//! \brief A Waitable Interface to represent objects hose wait() method
+//! can throw a #WaitableTimedOutException if the object is not ready
+//! and the #Waitable object's deadline has been exceeded.
 class TimedWaitable : public Waitable {
 public:
-    //! \brief Creates a TimedWaitable object whose wait() method throws a
-    //! WaitableTimedOutException if it has been called with timeouts that add
-    //! up to or exceed the object's waitLimit.
+    //! \brief Creates a Waitable object whose wait() method can throw a
+    //! #WaitableTimedOutException if the object is not ready and the
+    //! given timeout has passed. In those cases the object's expired
+    //! method should return true.
     //!
-    //! \param waitLimit The maximum time that the wait() method's timeouts
-    //! can add up to before the object is considered timed-out.
-    explicit TimedWaitable(std::chrono::microseconds waitLimit) :
-        waitLimit_(std::move(waitLimit))
+    //! \param timeout The timeout after which the object is considered
+    //! expired.
+    explicit TimedWaitable(std::chrono::microseconds timeout) :
+        Waitable(toEpochTimestamp(std::chrono::steady_clock::now() + timeout))
     {}
 
-    //! \throws WaitableTimedOutException if the object has timed-out as a result
-    //! of multiple invocations of the wait() method with timeouts that add
-    //! up to or exceed the object's waitLimit.
+    //! \brief Waits, at most, the given amount of time to determine whether
+    //! the object is ready or not.
+    //!
+    //! \param q The maximum time to wait until determining whether the object
+    //! is ready or not.
+    //!
+    //! \return true if the object is ready and false otherwise.
+    //!
+    //! \throw #WaitableTimedOutException if not ready and deadline was exceeded.
     //!
     //! \note Objects that inherit the TimedWaitable Interface should override
     //! timedWait() to implement their specific waiting logic.
     //!
     //! \sa timedWait()
-    bool wait(const std::chrono::microseconds& timeout) override final
+    bool wait(const std::chrono::microseconds& q) override final
     {
-        if (waitLimit_ <= std::chrono::microseconds(0)) {
-            throw WaitableTimedOutException("Wait limit exceeded");
+        if (!expired(toEpochTimestamp(std::chrono::steady_clock::now()))) {
+            return timedWait(q);
         }
 
-        if (timedWait(timeout)) {
+        if (timedWait(std::chrono::microseconds(0))) {
             return true;
         }
 
-        waitLimit_ -= std::max(timeout, std::chrono::microseconds(1));
-        return false;
+        throw WaitableTimedOutException("Wait limit exceeded");
     }
 
     //! \brief Waits, at most, the given amount of time to determine whether
-    //! the object is fulfilled or not.
+    //! the object is ready or not.
     //!
     //! \param timeout The maximum time to wait until determining whether the object
-    //! is fulfilled or not.
+    //! is ready or not.
     //!
     //! \return true if the object is fulfilled and false otherwise.
     //!
@@ -80,13 +86,10 @@ public:
     virtual bool timedWait(const std::chrono::microseconds& timeout) = 0;
 
 protected:
-    std::chrono::microseconds getWaitLimit() const
+    std::chrono::microseconds getTimeout() const
     {
-        return waitLimit_;
+        return timeout(toEpochTimestamp(std::chrono::steady_clock::now()));
     }
-
-private:
-    std::chrono::microseconds waitLimit_{ 0 };
 };
 
 } // namespace futures
