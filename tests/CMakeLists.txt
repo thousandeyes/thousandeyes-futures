@@ -41,4 +41,6 @@ function(add_testcase _file)
 endfunction(add_testcase)
 
 add_testcase(future.cpp)
-add_testcase(waitables.cpp)
+add_testcase(waitable.cpp)
+add_testcase(timedwaitable.cpp)
+add_testcase(pollingexecutor.cpp)
