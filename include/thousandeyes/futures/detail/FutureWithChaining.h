@@ -56,7 +56,7 @@ public:
 
         try {
             if (auto e = executor_.lock()) {
-                e->watch(std::make_unique<FutureWithForwarding<TOut>>(getWaitLimit(),
+                e->watch(std::make_unique<FutureWithForwarding<TOut>>(getTimeout(),
                                                                       cont_(std::move(f_)),
                                                                       std::move(p_)));
             }
