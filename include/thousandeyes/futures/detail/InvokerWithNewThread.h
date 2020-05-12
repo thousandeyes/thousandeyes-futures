@@ -25,12 +25,10 @@ public:
     {
         std::lock_guard<std::mutex> lock(m_);
 
-        if (t0_.joinable() && t0_.get_id() != std::this_thread::get_id()) {
-            t0_.join();
-        }
-
-        if (t1_.joinable() && t1_.get_id() != std::this_thread::get_id()) {
-            t1_.join();
+        for (auto& t: ts_) {
+            if (t.joinable() && t.get_id() != std::this_thread::get_id()) {
+                t.join();
+            }
         }
     }
 
@@ -38,24 +36,23 @@ public:
     {
         std::lock_guard<std::mutex> lock(m_);
 
-        if (!usingT0_ && t0_.joinable()) {
-            t0_.join();
+        auto iter = ts_.begin();
+        while (iter != ts_.end()) {
+            if (iter->joinable() && iter->get_id() != std::this_thread::get_id()) {
+                iter->join();
+                iter = ts_.erase(iter);
+            }
+            else {
+                ++iter;
+            }
         }
 
-        if (usingT0_ && t1_.joinable()) {
-            t1_.join();
-        }
-
-        (!usingT0_ ? t0_ : t1_) = std::thread(std::move(f));
-
-        usingT0_ = !usingT0_; // flip
+        ts_.push_back(std::thread(std::move(f)));
     }
 
 private:
     std::mutex m_;
-    bool usingT0_{ false };
-    std::thread t0_;
-    std::thread t1_;
+    std::vector<std::thread> ts_;
 };
 
 } // namespace detail
