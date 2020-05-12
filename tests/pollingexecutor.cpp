@@ -71,10 +71,6 @@ public:
         invoker_(move(invoker))
     {}
 
-    void start() {}
-
-    void stop() {}
-
     void operator()(function<void()> f)
     {
         invoker_->invoke(move(f));

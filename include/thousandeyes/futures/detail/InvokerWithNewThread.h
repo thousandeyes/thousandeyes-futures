@@ -23,13 +23,8 @@ class InvokerWithNewThread {
 public:
     ~InvokerWithNewThread()
     {
-        stop();
-    }
+        std::lock_guard<std::mutex> lock(m_);
 
-    void start() {}
-
-    void stop()
-    {
         if (t0_.joinable() && t0_.get_id() != std::this_thread::get_id()) {
             t0_.join();
         }
@@ -41,6 +36,8 @@ public:
 
     void operator()(std::function<void()> f)
     {
+        std::lock_guard<std::mutex> lock(m_);
+
         if (!usingT0_ && t0_.joinable()) {
             t0_.join();
         }
@@ -55,8 +52,8 @@ public:
     }
 
 private:
+    std::mutex m_;
     bool usingT0_{ false };
-
     std::thread t0_;
     std::thread t1_;
 };

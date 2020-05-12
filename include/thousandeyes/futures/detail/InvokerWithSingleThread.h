@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
@@ -24,12 +23,7 @@ namespace detail {
 
 class InvokerWithSingleThread {
 public:
-    ~InvokerWithSingleThread()
-    {
-        stop();
-    }
-
-    void start()
+    InvokerWithSingleThread()
     {
         t_ = std::thread([this]() {
             while (true) {
@@ -54,7 +48,7 @@ public:
         });
     }
 
-    void stop()
+    ~InvokerWithSingleThread()
     {
         bool wasActive;
         {
@@ -92,9 +86,7 @@ private:
     std::mutex m_;
     std::condition_variable cv_;
     std::thread t_;
-
     bool active_{ true };
-
     std::queue<std::function<void()>> fs_;
 };
 
