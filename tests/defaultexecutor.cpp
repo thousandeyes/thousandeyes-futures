@@ -130,12 +130,12 @@ future<void> getExceptionAsync()
 
 } // namespace
 
-class FutureTest : public TestWithParam<int> {
+class DefaultExecutorTest : public TestWithParam<int> {
 protected:
-    FutureTest() = default;
+    DefaultExecutorTest() = default;
 };
 
-TEST_F(FutureTest, SetValueAtExitSanityCheck)
+TEST_F(DefaultExecutorTest, SetValueAtExitSanityCheck)
 {
     auto p = make_shared<promise<int>>();
 
@@ -150,7 +150,7 @@ TEST_F(FutureTest, SetValueAtExitSanityCheck)
     EXPECT_EQ(1821, f.get());
 }
 
-TEST_F(FutureTest, ThenWithoutException)
+TEST_F(DefaultExecutorTest, ThenWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -169,7 +169,7 @@ TEST_F(FutureTest, ThenWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithException)
+TEST_F(DefaultExecutorTest, ThenWithException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -183,7 +183,7 @@ TEST_F(FutureTest, ThenWithException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithVoidInputWithoutException)
+TEST_F(DefaultExecutorTest, ThenWithVoidInputWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -198,7 +198,7 @@ TEST_F(FutureTest, ThenWithVoidInputWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithVoidInputWithException)
+TEST_F(DefaultExecutorTest, ThenWithVoidInputWithException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -214,7 +214,7 @@ TEST_F(FutureTest, ThenWithVoidInputWithException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithVoidOutputWithoutException)
+TEST_F(DefaultExecutorTest, ThenWithVoidOutputWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -228,7 +228,7 @@ TEST_F(FutureTest, ThenWithVoidOutputWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithVoidOutputWithException)
+TEST_F(DefaultExecutorTest, ThenWithVoidOutputWithException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -243,7 +243,7 @@ TEST_F(FutureTest, ThenWithVoidOutputWithException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithVoidInputAndOutputWithoutException)
+TEST_F(DefaultExecutorTest, ThenWithVoidInputAndOutputWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -257,7 +257,7 @@ TEST_F(FutureTest, ThenWithVoidInputAndOutputWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithVoidInputAndOutputWithException)
+TEST_F(DefaultExecutorTest, ThenWithVoidInputAndOutputWithException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -272,7 +272,7 @@ TEST_F(FutureTest, ThenWithVoidInputAndOutputWithException)
     executor->stop();
 }
 
-TEST_F(FutureTest, IdentityChainingThenWithoutException)
+TEST_F(DefaultExecutorTest, IdentityChainingThenWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -286,7 +286,7 @@ TEST_F(FutureTest, IdentityChainingThenWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ChainingThenWithoutException)
+TEST_F(DefaultExecutorTest, ChainingThenWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -306,7 +306,7 @@ TEST_F(FutureTest, ChainingThenWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithoutExceptionMultipleFutures)
+TEST_F(DefaultExecutorTest, ThenWithoutExceptionMultipleFutures)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -325,7 +325,7 @@ TEST_F(FutureTest, ThenWithoutExceptionMultipleFutures)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithExceptionInInputPromise)
+TEST_F(DefaultExecutorTest, ThenWithExceptionInInputPromise)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -351,7 +351,7 @@ TEST_F(FutureTest, ThenWithExceptionInInputPromise)
     executor->stop();
 }
 
-TEST_F(FutureTest, ChainingThenWithExceptionInInputPromise)
+TEST_F(DefaultExecutorTest, ChainingThenWithExceptionInInputPromise)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -383,7 +383,7 @@ TEST_F(FutureTest, ChainingThenWithExceptionInInputPromise)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithExceptionInOutputPromise)
+TEST_F(DefaultExecutorTest, ThenWithExceptionInOutputPromise)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -404,7 +404,7 @@ TEST_F(FutureTest, ThenWithExceptionInOutputPromise)
     executor->stop();
 }
 
-TEST_F(FutureTest, ChainingThenWithExceptionInOutputPromiseLvl0)
+TEST_F(DefaultExecutorTest, ChainingThenWithExceptionInOutputPromiseLvl0)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -425,7 +425,7 @@ TEST_F(FutureTest, ChainingThenWithExceptionInOutputPromiseLvl0)
     executor->stop();
 }
 
-TEST_F(FutureTest, ChainingThenWithExceptionInOutputPromiseLvl1)
+TEST_F(DefaultExecutorTest, ChainingThenWithExceptionInOutputPromiseLvl1)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -446,7 +446,7 @@ TEST_F(FutureTest, ChainingThenWithExceptionInOutputPromiseLvl1)
     executor->stop();
 }
 
-TEST_F(FutureTest, ChainingThenWithExceptionInOutputPromiseLvl2)
+TEST_F(DefaultExecutorTest, ChainingThenWithExceptionInOutputPromiseLvl2)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -467,7 +467,7 @@ TEST_F(FutureTest, ChainingThenWithExceptionInOutputPromiseLvl2)
     executor->stop();
 }
 
-TEST_F(FutureTest, ThenWithExceptionInOutputPromiseMultipleFutures)
+TEST_F(DefaultExecutorTest, ThenWithExceptionInOutputPromiseMultipleFutures)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -487,7 +487,7 @@ TEST_F(FutureTest, ThenWithExceptionInOutputPromiseMultipleFutures)
     executor->stop();
 }
 
-TEST_F(FutureTest, ContainerAllSum)
+TEST_F(DefaultExecutorTest, ContainerAllSum)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -514,7 +514,7 @@ TEST_F(FutureTest, ContainerAllSum)
     executor->stop();
 }
 
-TEST_F(FutureTest, ContainerViaIteratorsAllSum)
+TEST_F(DefaultExecutorTest, ContainerViaIteratorsAllSum)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -545,7 +545,7 @@ TEST_F(FutureTest, ContainerViaIteratorsAllSum)
     executor->stop();
 }
 
-TEST_F(FutureTest, EmptyContainerAll)
+TEST_F(DefaultExecutorTest, EmptyContainerAll)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -558,7 +558,7 @@ TEST_F(FutureTest, EmptyContainerAll)
     executor->stop();
 }
 
-TEST_F(FutureTest, ContainerAllWithoutException)
+TEST_F(DefaultExecutorTest, ContainerAllWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -579,7 +579,7 @@ TEST_F(FutureTest, ContainerAllWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, EmptyArrayAll)
+TEST_F(DefaultExecutorTest, EmptyArrayAll)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -592,7 +592,7 @@ TEST_F(FutureTest, EmptyArrayAll)
     executor->stop();
 }
 
-TEST_F(FutureTest, ArrayAllWithoutException)
+TEST_F(DefaultExecutorTest, ArrayAllWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -613,7 +613,7 @@ TEST_F(FutureTest, ArrayAllWithoutException)
     executor->stop();
 }
 
-TEST_P(FutureTest, ArrayAllWithExceptionWithParam)
+TEST_P(DefaultExecutorTest, ArrayAllWithExceptionWithParam)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -646,10 +646,10 @@ TEST_P(FutureTest, ArrayAllWithExceptionWithParam)
 }
 
 INSTANTIATE_TEST_SUITE_P(ArrayAllWithExceptionInNthInputPromise,
-                         FutureTest,
+                         DefaultExecutorTest,
                          Range(0, 1821, 100));
 
-TEST_F(FutureTest, TupleAllWithExplicitTupleWithoutException)
+TEST_F(DefaultExecutorTest, TupleAllWithExplicitTupleWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -665,7 +665,7 @@ TEST_F(FutureTest, TupleAllWithExplicitTupleWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, TupleOfTwoAllWithSameType)
+TEST_F(DefaultExecutorTest, TupleOfTwoAllWithSameType)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -681,7 +681,7 @@ TEST_F(FutureTest, TupleOfTwoAllWithSameType)
     executor->stop();
 }
 
-TEST_F(FutureTest, TupleAllWithoutException)
+TEST_F(DefaultExecutorTest, TupleAllWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -699,7 +699,7 @@ TEST_F(FutureTest, TupleAllWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, TupleAllWithContinuationWithoutException)
+TEST_F(DefaultExecutorTest, TupleAllWithContinuationWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -724,7 +724,7 @@ TEST_F(FutureTest, TupleAllWithContinuationWithoutException)
     executor->stop();
 }
 
-TEST_F(FutureTest, TupleAllWithException)
+TEST_F(DefaultExecutorTest, TupleAllWithException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
@@ -793,7 +793,7 @@ future<int> recFunc2(future<int> f)
 
 } // namespace
 
-TEST_F(FutureTest, MutuallyRecursiveFunctionsCreateDependentFutures)
+TEST_F(DefaultExecutorTest, MutuallyRecursiveFunctionsCreateDependentFutures)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
