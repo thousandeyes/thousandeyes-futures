@@ -33,6 +33,14 @@ std::future<typename std::decay<T>::type> fromValue(T&& value)
     return result.get_future();
 }
 
+//! \brief Convenience function for obtaining a ready void future.
+std::future<void> fromValue()
+{
+    std::promise<void> result;
+    result.set_value();
+    return result.get_future();
+}
+
 //! \brief Convenience function for obtaining a ready future that throws
 //! the exception stored in the given #std::exception_ptr.
 //!
