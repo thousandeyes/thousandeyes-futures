@@ -18,7 +18,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <thousandeyes/futures/PollingExecutor.h>
 #include <thousandeyes/futures/TimedWaitable.h>
 #include <thousandeyes/futures/Waitable.h>
 
@@ -39,7 +38,6 @@ using std::chrono::microseconds;
 using std::chrono::duration_cast;
 using std::this_thread::sleep_for;
 
-using thousandeyes::futures::PollingExecutor;
 using thousandeyes::futures::Waitable;
 using thousandeyes::futures::WaitableTimedOutException;
 using thousandeyes::futures::TimedWaitable;

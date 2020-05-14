@@ -23,42 +23,36 @@ class InvokerWithNewThread {
 public:
     ~InvokerWithNewThread()
     {
-        stop();
-    }
+        std::lock_guard<std::mutex> lock(m_);
 
-    void start() {}
-
-    void stop()
-    {
-        if (t0_.joinable() && t0_.get_id() != std::this_thread::get_id()) {
-            t0_.join();
-        }
-
-        if (t1_.joinable() && t1_.get_id() != std::this_thread::get_id()) {
-            t1_.join();
+        for (auto& t: ts_) {
+            if (t.joinable() && t.get_id() != std::this_thread::get_id()) {
+                t.join();
+            }
         }
     }
 
     void operator()(std::function<void()> f)
     {
-        if (!usingT0_ && t0_.joinable()) {
-            t0_.join();
+        std::lock_guard<std::mutex> lock(m_);
+
+        auto iter = ts_.begin();
+        while (iter != ts_.end()) {
+            if (iter->joinable() && iter->get_id() != std::this_thread::get_id()) {
+                iter->join();
+                iter = ts_.erase(iter);
+            }
+            else {
+                ++iter;
+            }
         }
 
-        if (usingT0_ && t1_.joinable()) {
-            t1_.join();
-        }
-
-        (!usingT0_ ? t0_ : t1_) = std::thread(std::move(f));
-
-        usingT0_ = !usingT0_; // flip
+        ts_.push_back(std::thread(std::move(f)));
     }
 
 private:
-    bool usingT0_{ false };
-
-    std::thread t0_;
-    std::thread t1_;
+    std::mutex m_;
+    std::vector<std::thread> ts_;
 };
 
 } // namespace detail

@@ -38,11 +38,10 @@ public:
     //!
     //! \param q The polling timeout.
     PollingExecutor(std::chrono::microseconds q) :
-        q_(std::move(q))
-    {
-        dispatchFunc_.start();
-        pollFunc_.start();
-    }
+        q_(std::move(q)),
+        pollFunc_(std::make_unique<TPollFunctor>()),
+        dispatchFunc_(std::make_unique<TDispatchFunctor>())
+    {}
 
     //! \brief Constructs a #PollingExecutor with the given functors
     //! for polling and dispatching ready #Waitables
@@ -54,12 +53,13 @@ public:
                     TPollFunctor&& pollFunc,
                     TDispatchFunctor&& dispatchFunc) :
         q_(std::move(q)),
-        pollFunc_(std::forward<TPollFunctor>(pollFunc)),
-        dispatchFunc_(std::forward<TDispatchFunctor>(dispatchFunc))
-    {
-        dispatchFunc_.start();
-        pollFunc_.start();
-    }
+        pollFunc_(std::make_unique<TPollFunctor>(
+            std::forward<TPollFunctor>(pollFunc)
+        )),
+        dispatchFunc_(std::make_unique<TDispatchFunctor>(
+            std::forward<TDispatchFunctor>(dispatchFunc)
+        ))
+    {}
 
     ~PollingExecutor()
     {
@@ -89,7 +89,7 @@ public:
 
         auto keep = this->shared_from_this();
 
-        pollFunc_([this, keep]() {
+        (*pollFunc_)([this, keep]() {
 
             while (true) {
 
@@ -126,7 +126,7 @@ public:
                 // Using shared_ptr to enable copy-ability of the lambda, otherwise the
                 // dispatchFunc_ would not be able to accept it as function<void()>
                 std::shared_ptr<Waitable> wShared = std::move(w);
-                dispatchFunc_([w=std::move(wShared), error=std::move(error)]() {
+                (*dispatchFunc_)([w=std::move(wShared), error=std::move(error)]() {
                     w->dispatch(error);
                 });
             }
@@ -147,8 +147,8 @@ public:
         }
 
         if (wasActive) {
-            pollFunc_.stop();
-            dispatchFunc_.stop();
+            pollFunc_.reset();
+            dispatchFunc_.reset();
         }
 
         if (!pending.empty()) {
@@ -168,8 +168,8 @@ private:
     bool active_{ true };
     bool isPollerRunning_{ false };
 
-    TPollFunctor pollFunc_;
-    TDispatchFunctor dispatchFunc_;
+    std::unique_ptr<TPollFunctor> pollFunc_;
+    std::unique_ptr<TDispatchFunctor> dispatchFunc_;
 };
 
 } // namespace futures
