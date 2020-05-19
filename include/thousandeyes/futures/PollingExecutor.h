@@ -92,8 +92,7 @@ public:
         }
 
         if (!isActive) {
-            dispatch_(move(w),
-                      std::make_exception_ptr(WaitableWaitException("Executor inactive")));
+            cancel_(move(w), "Executor inactive");
             return;
         }
 
@@ -118,9 +117,8 @@ public:
             return;
         }
 
-        auto error = std::make_exception_ptr(WaitableWaitException("Executor stoped"));
         for (std::unique_ptr<Waitable>& w: pending) {
-            dispatch_(move(w), error);
+            cancel_(move(w), "Executor stoped");
         }
 
         pollFunc_.reset();
@@ -138,28 +136,39 @@ private:
         });
     }
 
+    inline void cancel_(std::unique_ptr<Waitable> w, const std::string& message)
+    {
+        auto error = std::make_exception_ptr(WaitableWaitException(message));
+        dispatch_(std::move(w), std::move(error));
+    }
+
     inline void poll_()
     {
         std::vector<std::unique_ptr<Waitable>> polling;
+        polling.reserve(1000);
 
         while (true) {
+            bool isPollerRunning;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
-
-                if ((polling.empty() && waitables_.empty()) || !active_) {
-                    isPollerRunning_ = false;
-
-                    std::move(polling.begin(),
-                              polling.end(),
-                              std::back_inserter(waitables_));
-                    break;
-                }
 
                 std::move(waitables_.begin(),
                           waitables_.end(),
                           std::back_inserter(polling));
-
                 waitables_.clear();
+
+                if (!active_ || polling.empty()) {
+                    isPollerRunning_ = false;
+                }
+
+                isPollerRunning = isPollerRunning_;
+            }
+
+            if (!isPollerRunning) {
+                for (std::unique_ptr<Waitable>& w: polling) {
+                    cancel_(move(w), "Executor stoped");
+                }
+                return;
             }
 
             auto middleIter = polling.begin() + polling.size() / 2;
@@ -171,7 +180,18 @@ private:
                 return a->compare(*b) < std::chrono::milliseconds(0);
             });
 
-            const auto waitAndDispatch = [this](std::unique_ptr<Waitable>& w) {
+            std::for_each(polling.begin(), middleIter, [this](std::unique_ptr<Waitable>& w) {
+                try {
+                    if (w->wait(q_)) {
+                        dispatch_(std::move(w), nullptr);
+                    }
+                }
+                catch (...) {
+                    dispatch_(std::move(w), std::current_exception());
+                }
+            });
+
+            std::for_each(polling.begin(), polling.end(), [this](std::unique_ptr<Waitable>& w) {
                 try {
                     if (w && w->wait(q_)) {
                         dispatch_(std::move(w), nullptr);
@@ -180,9 +200,7 @@ private:
                 catch (...) {
                     dispatch_(std::move(w), std::current_exception());
                 }
-            };
-            std::for_each(polling.begin(), middleIter, waitAndDispatch);
-            std::for_each(polling.begin(), polling.end(), waitAndDispatch);
+            });
 
             // Remove dispatched waitables
             polling.erase(std::remove_if(polling.begin(),
