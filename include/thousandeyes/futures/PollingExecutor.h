@@ -10,7 +10,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <mutex>
@@ -138,12 +140,9 @@ private:
 
     inline void poll_()
     {
-        // Kept sorted by deadline
         std::vector<std::unique_ptr<Waitable>> polling;
 
         while (true) {
-
-            std::vector<std::unique_ptr<Waitable>> newWaitables;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
 
@@ -156,35 +155,40 @@ private:
                     break;
                 }
 
-                newWaitables.swap(waitables_);
+                std::move(waitables_.begin(),
+                          waitables_.end(),
+                          std::back_inserter(polling));
+
+                waitables_.clear();
             }
 
-            for (auto& nw: newWaitables) {
-                auto iter = std::upper_bound(polling.begin(),
-                                             polling.end(),
-                                             nw,
-                                             [](const auto& a, const auto& b) {
-                    return a->compare(*b) <= std::chrono::milliseconds(0);
-                });
-                polling.insert(iter, std::move(nw));
-            }
+            auto middleIter = polling.begin() + polling.size() / 2;
 
-            for (std::unique_ptr<Waitable>& w: polling) {
+            std::nth_element(polling.begin(),
+                             middleIter,
+                             polling.end(),
+                             [](const auto& a, const auto& b) {
+                return a->compare(*b) < std::chrono::milliseconds(0);
+            });
+
+            const auto waitAndDispatch = [this](std::unique_ptr<Waitable>& w) {
                 try {
-                    if (w->wait(q_)) {
+                    if (w && w->wait(q_)) {
                         dispatch_(std::move(w), nullptr);
                     }
                 }
                 catch (...) {
                     dispatch_(std::move(w), std::current_exception());
                 }
-            }
+            };
+            std::for_each(polling.begin(), middleIter, waitAndDispatch);
+            std::for_each(polling.begin(), polling.end(), waitAndDispatch);
 
             // Remove dispatched waitables
-            auto iter = std::remove_if(polling.begin(), polling.end(), [](const auto& w) {
-                return !w;
-            });
-            polling.erase(iter, polling.end());
+            polling.erase(std::remove_if(polling.begin(),
+                                         polling.end(),
+                                         std::logical_not<std::unique_ptr<Waitable>>()),
+                          polling.end());
         }
     }
 
