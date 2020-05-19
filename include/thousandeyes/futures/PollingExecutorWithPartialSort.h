@@ -93,7 +93,7 @@ public:
         }
 
         if (!isActive) {
-            cancel_(move(w), "Executor inactive");
+            cancel_(std::move(w), "Executor inactive");
             return;
         }
 
@@ -104,22 +104,16 @@ public:
 
     void stop() override final
     {
-        bool wasActive;
         std::vector<std::unique_ptr<Waitable>> pending;
         {
             std::lock_guard<std::mutex> lock(mutex_);
 
-            wasActive = active_;
             active_ = false;
             pending.swap(waitables_);
         }
 
-        if (!wasActive) {
-            return;
-        }
-
         for (std::unique_ptr<Waitable>& w: pending) {
-            cancel_(move(w), "Executor stoped");
+            cancel_(std::move(w), "Executor stoped");
         }
 
         pollFunc_.reset();
@@ -167,7 +161,7 @@ private:
 
             if (!isPollerRunning) {
                 for (std::unique_ptr<Waitable>& w: polling) {
-                    cancel_(move(w), "Executor stoped");
+                    cancel_(std::move(w), "Executor stoped");
                 }
                 return;
             }
