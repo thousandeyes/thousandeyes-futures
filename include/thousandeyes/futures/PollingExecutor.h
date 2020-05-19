@@ -10,13 +10,10 @@
 
 #pragma once
 
-#include <algorithm>
 #include <chrono>
-#include <functional>
-#include <iterator>
 #include <memory>
 #include <mutex>
-#include <vector>
+#include <queue>
 
 #include <thousandeyes/futures/Executor.h>
 #include <thousandeyes/futures/Waitable.h>
@@ -74,146 +71,100 @@ public:
 
     void watch(std::unique_ptr<Waitable> w) override final
     {
-        bool isActive;
         {
             std::lock_guard<std::mutex> lock(mutex_);
 
-            isActive = active_;
+            if (!active_) {
+                return;
+            }
 
-            if (isActive) {
-                waitables_.push_back(std::move(w));
+            waitables_.push(std::move(w));
 
-                if (isPollerRunning_) {
-                    return;
+            if (isPollerRunning_) {
+                return;
+            }
+
+            isPollerRunning_ = true;
+        }
+
+        auto keep = this->shared_from_this();
+
+        (*pollFunc_)([this, keep]() {
+
+            while (true) {
+
+                std::unique_ptr<Waitable> w;
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+
+                    if (waitables_.empty() || !active_) {
+                        isPollerRunning_ = false;
+                        break;
+                    }
+
+                    w = std::move(waitables_.front());
+                    waitables_.pop();
                 }
 
-                isPollerRunning_ = true;
+                bool ready = true;
+                std::exception_ptr error = nullptr;
+
+                try {
+                    ready = w->wait(q_);
+                }
+                catch (...) {
+                    error = std::current_exception();
+                }
+
+                if (!ready) {
+                    std::lock_guard<std::mutex> lock(mutex_);
+
+                    waitables_.push(std::move(w));
+                    continue;
+                }
+
+                // Using shared_ptr to enable copy-ability of the lambda, otherwise the
+                // dispatchFunc_ would not be able to accept it as function<void()>
+                std::shared_ptr<Waitable> wShared = std::move(w);
+                (*dispatchFunc_)([w=std::move(wShared), error=std::move(error)]() {
+                    w->dispatch(error);
+                });
             }
-        }
-
-        if (!isActive) {
-            cancel_(move(w), "Executor inactive");
-            return;
-        }
-
-        (*pollFunc_)([this, keep=this->shared_from_this()]() {
-            poll_();
         });
     }
 
     void stop() override final
     {
         bool wasActive;
-        std::vector<std::unique_ptr<Waitable>> pending;
+        std::queue<std::unique_ptr<Waitable>> pending;
         {
             std::lock_guard<std::mutex> lock(mutex_);
 
             wasActive = active_;
             active_ = false;
+
             pending.swap(waitables_);
         }
 
-        if (!wasActive) {
-            return;
+        if (wasActive) {
+            pollFunc_.reset();
+            dispatchFunc_.reset();
         }
 
-        for (std::unique_ptr<Waitable>& w: pending) {
-            cancel_(move(w), "Executor stoped");
+        if (!pending.empty()) {
+            auto error = std::make_exception_ptr(WaitableWaitException("Executor stoped"));
+            do {
+                pending.front()->dispatch(error);
+                pending.pop();
+            } while (!pending.empty());
         }
-
-        pollFunc_.reset();
-        dispatchFunc_.reset();
     }
 
 private:
-    inline void dispatch_(std::unique_ptr<Waitable> w, std::exception_ptr error)
-    {
-        // Using shared_ptr to enable copy-ability of the lambda, otherwise the
-        // dispatchFunc_ would not be able to accept it as function<void()>
-        std::shared_ptr<Waitable> wShared = std::move(w);
-        (*dispatchFunc_)([w=std::move(wShared), error=std::move(error)]() {
-            w->dispatch(error);
-        });
-    }
-
-    inline void cancel_(std::unique_ptr<Waitable> w, const std::string& message)
-    {
-        auto error = std::make_exception_ptr(WaitableWaitException(message));
-        dispatch_(std::move(w), std::move(error));
-    }
-
-    inline void poll_()
-    {
-        std::vector<std::unique_ptr<Waitable>> polling;
-        polling.reserve(1000);
-
-        while (true) {
-            bool isPollerRunning;
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-
-                std::move(waitables_.begin(),
-                          waitables_.end(),
-                          std::back_inserter(polling));
-                waitables_.clear();
-
-                if (!active_ || polling.empty()) {
-                    isPollerRunning_ = false;
-                }
-
-                isPollerRunning = isPollerRunning_;
-            }
-
-            if (!isPollerRunning) {
-                for (std::unique_ptr<Waitable>& w: polling) {
-                    cancel_(move(w), "Executor stoped");
-                }
-                return;
-            }
-
-            auto middleIter = polling.begin() + polling.size() / 2;
-
-            std::nth_element(polling.begin(),
-                             middleIter,
-                             polling.end(),
-                             [](const auto& a, const auto& b) {
-                return a->compare(*b) < std::chrono::milliseconds(0);
-            });
-
-            std::for_each(polling.begin(), middleIter, [this](std::unique_ptr<Waitable>& w) {
-                try {
-                    if (w->wait(q_)) {
-                        dispatch_(std::move(w), nullptr);
-                    }
-                }
-                catch (...) {
-                    dispatch_(std::move(w), std::current_exception());
-                }
-            });
-
-            std::for_each(polling.begin(), polling.end(), [this](std::unique_ptr<Waitable>& w) {
-                try {
-                    if (w && w->wait(q_)) {
-                        dispatch_(std::move(w), nullptr);
-                    }
-                }
-                catch (...) {
-                    dispatch_(std::move(w), std::current_exception());
-                }
-            });
-
-            // Remove dispatched waitables
-            polling.erase(std::remove_if(polling.begin(),
-                                         polling.end(),
-                                         std::logical_not<std::unique_ptr<Waitable>>()),
-                          polling.end());
-        }
-    }
-
     const std::chrono::microseconds q_;
 
     std::mutex mutex_;
-    std::vector<std::unique_ptr<Waitable>> waitables_;
+    std::queue<std::unique_ptr<Waitable>> waitables_;
     bool active_{ true };
     bool isPollerRunning_{ false };
 
