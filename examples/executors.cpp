@@ -204,6 +204,50 @@ future<int> recFunc2(future<int> f)
     });
 }
 
+microseconds simulateAggregateLag(const vector<milliseconds>& expectedRuntimes,
+                                  bool useTimeoutHints)
+{
+    auto t0 = steady_clock::now(); // Reference timepoint
+
+    vector<thread> ts;
+    vector<future<microseconds>> ifs;
+    for (const auto& t: expectedRuntimes) {
+        promise<microseconds> p;
+        ifs.push_back(p.get_future());
+        ts.emplace_back([t, t0, p=move(p)]() mutable {
+            this_thread::sleep_for(t);
+            p.set_value(duration_cast<microseconds>(steady_clock::now() - t0));
+        });
+    }
+
+    vector<future<microseconds>> ofs;
+    for (size_t i = 0; i < ifs.size(); ++i) {
+        auto& f = ifs[i];
+
+        milliseconds timeout = hours{ 1821 };
+        if (useTimeoutHints) {
+            timeout = expectedRuntimes[i] + milliseconds(10);
+        }
+
+        ofs.push_back(then(timeout, move(f), [t0](future<microseconds> g) {
+            return duration_cast<microseconds>(steady_clock::now() - t0) - g.get();
+        }));
+    }
+
+    ifs.clear();
+
+    auto aggregateLag = microseconds(0);
+    for (auto& f: ofs) {
+        aggregateLag += f.get();
+    }
+
+    for (auto& t: ts) {
+        t.join();
+    }
+
+    return aggregateLag;
+}
+
 } // namespace
 
 // --- Use cases that utilize thousandeyes-futures --- //
@@ -239,6 +283,58 @@ bool usecase1()
     return true;
 }
 
+bool usecase2()
+{
+    vector<milliseconds> expectedRuntimes {
+        milliseconds(1821),
+        milliseconds(100),
+        milliseconds(600),
+        milliseconds(300),
+        milliseconds(1000),
+        milliseconds(200),
+        milliseconds(5),
+        milliseconds(10),
+        milliseconds(1),
+        milliseconds(500),
+        milliseconds(250),
+        milliseconds(720),
+        milliseconds(1822),
+        milliseconds(2),
+        milliseconds(99),
+        milliseconds(70)
+    };
+
+    auto aggregateLag = simulateAggregateLag(expectedRuntimes, false);
+    cout << "Aggregate lag WITHOUT timeout hints: " << aggregateLag.count() << endl;
+
+    auto aggregateLagWithHints = simulateAggregateLag(expectedRuntimes, true);
+    cout << "Aggregate lag with timeout hints: " << aggregateLagWithHints.count() << endl;
+
+    return true;
+}
+
+bool usecase3()
+{
+    random_device rnd;
+    mt19937 engine{ rnd() };
+    uniform_int_distribution<int> dist{ 1, 3642 };
+
+    vector<milliseconds> expectedRuntimes(200);
+    generate(expectedRuntimes.begin(), expectedRuntimes.end(), [&dist, &engine]() {
+        return milliseconds{ dist(engine) };
+    });
+
+    auto aggregateLag = simulateAggregateLag(expectedRuntimes, true);
+    cout << "Aggregate lag: " << aggregateLag.count() << endl;
+
+    shuffle(expectedRuntimes.begin(), expectedRuntimes.end(), engine);
+
+    auto aggregateLagShuffled = simulateAggregateLag(expectedRuntimes, true);
+    cout << "Aggregate lag (shuffled): " << aggregateLagShuffled.count() << endl;
+
+    return true;
+}
+
 // --- main --- //
 
 void runUseCases(const string& useCaseName)
@@ -246,21 +342,23 @@ void runUseCases(const string& useCaseName)
     map<string, function<bool()>> allUseCases{
         { "0", &usecase0 },
         { "1", &usecase1 },
+        { "2", &usecase2 },
+        { "3", &usecase3 },
     };
 
     if (useCaseName == "all") {
         for (auto& e: allUseCases) {
-            cout << "Runing use case \"" << e.first << "\" ... " << flush;
+            cout << "Runing use case \"" << e.first << "\" --> " << endl;
             auto ok = e.second();
-            cout << (ok ? "OK" : "ERROR") << endl;
+            cout << (ok ? "<-- OK" : "<-- ERROR") << endl;
         }
         return;
     }
 
     if (auto f = allUseCases[useCaseName]) {
-        cout << "Runing use case \"" << useCaseName << "\" ... " << flush;
+        cout << "Runing use case \"" << useCaseName << "\" --> " << endl;
         auto ok = f();
-        cout << (ok ? "OK" : "ERROR") << endl;
+        cout << (ok ? "<-- OK" : "<-- ERROR") << endl;
         return;
     }
 
@@ -342,3 +440,17 @@ int main(int argc, const char* argv[])
 //
 // default500, 0: 0.24s user 0.23s system 8% cpu 5.415 total
 // default500, 1: (probably 5 X 33:52.91 total)
+
+// Aggregate lag results min - max in microseconds:
+// unbounded (baseline):
+//     uc2: 1180 - 3542 --> 1 - 4 milliseconds
+//     uc3: 22583 - 44913 --> 22 - 45 milliseconds
+// default 1:
+//     uc2: 63100 - 84675 --> 63 - 85 milliseconds
+//     uc3: 11860349 - 13001625 --> 11 - 13 seconds
+// default 10:
+//     uc2: 445399 - 584648 --> 446 - 585 milliseconds
+//     uc3: 90593507 - 97713076 --> 91 - 98 seconds
+// default 100:
+//     uc2: 4084722 - 4134591 --> 4 - 5 seconds
+//     uc3: 266024756 - 303353860 --> 267 - 304 seconds

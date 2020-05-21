@@ -72,6 +72,7 @@ using thousandeyes::futures::Waitable;
 using thousandeyes::futures::then;
 using thousandeyes::futures::all;
 using thousandeyes::futures::fromValue;
+using thousandeyes::futures::fromException;
 
 namespace detail = thousandeyes::futures::detail;
 
@@ -286,6 +287,34 @@ TEST_F(DefaultExecutorTest, IdentityChainingThenWithoutException)
     executor->stop();
 }
 
+TEST_F(DefaultExecutorTest, ForwardingThenWithoutException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getValueAsync(), [](future<void> f) {
+        return fromValue();
+    });
+
+    EXPECT_NO_THROW(f.get());
+
+    executor->stop();
+}
+
+TEST_F(DefaultExecutorTest, ForwardingThenWithException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getValueAsync(), [](future<void> f) {
+        return fromException<void>(make_exception_ptr(SomeKindOfError{}));
+    });
+
+    EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
+}
+
 TEST_F(DefaultExecutorTest, ChainingThenWithoutException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
@@ -302,6 +331,24 @@ TEST_F(DefaultExecutorTest, ChainingThenWithoutException)
     });
 
     EXPECT_EQ("1821_1822_1823", f.get());
+
+    executor->stop();
+}
+
+TEST_F(DefaultExecutorTest, ChainingWithVoidOutputWithoutException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    auto f = then(getValueAsync(1821), [](future<int> f) {
+        auto first = to_string(f.get());
+        return then(getValueAsync(string("1822")), [first](future<string> f) {
+            auto second = f.get();
+            return then(getValueAsync(1823), [first, second](future<int> f) {});
+        });
+    });
+
+    EXPECT_NO_THROW(f.get());
 
     executor->stop();
 }

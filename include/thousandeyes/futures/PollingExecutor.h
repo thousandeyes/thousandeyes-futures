@@ -71,26 +71,29 @@ public:
 
     void watch(std::unique_ptr<Waitable> w) override final
     {
+        bool isActive;
         {
             std::lock_guard<std::mutex> lock(mutex_);
 
-            if (!active_) {
-                return;
+            isActive = active_;
+
+            if (isActive) {
+                waitables_.push(std::move(w));
+
+                if (isPollerRunning_) {
+                    return;
+                }
+
+                isPollerRunning_ = true;
             }
-
-            waitables_.push(std::move(w));
-
-            if (isPollerRunning_) {
-                return;
-            }
-
-            isPollerRunning_ = true;
         }
 
-        auto keep = this->shared_from_this();
+        if (!isActive) {
+            cancel_(std::move(w), "Executor inactive");
+            return;
+        }
 
-        (*pollFunc_)([this, keep]() {
-
+        (*pollFunc_)([this, keep=this->shared_from_this()]() {
             while (true) {
 
                 std::unique_ptr<Waitable> w;
@@ -106,61 +109,58 @@ public:
                     waitables_.pop();
                 }
 
-                bool ready = true;
-                std::exception_ptr error = nullptr;
-
                 try {
-                    ready = w->wait(q_);
+                    if (!w->wait(q_)) {
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        waitables_.push(std::move(w));
+                        continue;
+                    }
+
+                    dispatch_(std::move(w), nullptr);
                 }
                 catch (...) {
-                    error = std::current_exception();
+                    dispatch_(std::move(w), std::current_exception());
                 }
-
-                if (!ready) {
-                    std::lock_guard<std::mutex> lock(mutex_);
-
-                    waitables_.push(std::move(w));
-                    continue;
-                }
-
-                // Using shared_ptr to enable copy-ability of the lambda, otherwise the
-                // dispatchFunc_ would not be able to accept it as function<void()>
-                std::shared_ptr<Waitable> wShared = std::move(w);
-                (*dispatchFunc_)([w=std::move(wShared), error=std::move(error)]() {
-                    w->dispatch(error);
-                });
             }
         });
     }
 
     void stop() override final
     {
-        bool wasActive;
         std::queue<std::unique_ptr<Waitable>> pending;
         {
             std::lock_guard<std::mutex> lock(mutex_);
 
-            wasActive = active_;
             active_ = false;
-
             pending.swap(waitables_);
         }
 
-        if (wasActive) {
-            pollFunc_.reset();
-            dispatchFunc_.reset();
+        while (!pending.empty()) {
+            cancel_(std::move(pending.front()), "Executor stoped");
+            pending.pop();
         }
 
-        if (!pending.empty()) {
-            auto error = std::make_exception_ptr(WaitableWaitException("Executor stoped"));
-            do {
-                pending.front()->dispatch(error);
-                pending.pop();
-            } while (!pending.empty());
-        }
+        pollFunc_.reset();
+        dispatchFunc_.reset();
     }
 
 private:
+    inline void dispatch_(std::unique_ptr<Waitable> w, std::exception_ptr error)
+    {
+        // Using shared_ptr to enable copy-ability of the lambda, otherwise the
+        // dispatchFunc_ would not be able to accept it as function<void()>
+        std::shared_ptr<Waitable> wShared = std::move(w);
+        (*dispatchFunc_)([w=std::move(wShared), error=std::move(error)]() {
+            w->dispatch(error);
+        });
+    }
+
+    inline void cancel_(std::unique_ptr<Waitable> w, const std::string& message)
+    {
+        auto error = std::make_exception_ptr(WaitableWaitException(message));
+        dispatch_(std::move(w), std::move(error));
+    }
+
     const std::chrono::microseconds q_;
 
     std::mutex mutex_;
