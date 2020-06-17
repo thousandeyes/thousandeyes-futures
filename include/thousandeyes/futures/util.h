@@ -34,7 +34,7 @@ std::future<typename std::decay<T>::type> fromValue(T&& value)
 }
 
 //! \brief Convenience function for obtaining a ready void future.
-std::future<void> fromValue()
+inline std::future<void> fromValue()
 {
     std::promise<void> result;
     result.set_value();
