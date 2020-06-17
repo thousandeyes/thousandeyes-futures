@@ -2,7 +2,7 @@ from conans import ConanFile, CMake
 
 class ThousandEyesFuturesConan(ConanFile):
     name = "thousandeyes-futures"
-    version = "0.1"
+    version = "0.3"
     exports_sources = "include/*", "FindThousandEyesFutures.cmake"
     no_copy_source = True
     short_paths = True
