@@ -64,6 +64,9 @@ public:
     ~PollingExecutor()
     {
         stop();
+
+        pollFunc_.reset();
+        dispatchFunc_.reset();
     }
 
     PollingExecutor(const PollingExecutor& o) = delete;
@@ -139,9 +142,6 @@ public:
             cancel_(std::move(pending.front()), "Executor stoped");
             pending.pop();
         }
-
-        pollFunc_.reset();
-        dispatchFunc_.reset();
     }
 
 private:

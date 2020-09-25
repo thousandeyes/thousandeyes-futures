@@ -69,6 +69,7 @@ using thousandeyes::futures::Default;
 using thousandeyes::futures::DefaultExecutor;
 using thousandeyes::futures::Executor;
 using thousandeyes::futures::Waitable;
+using thousandeyes::futures::WaitableWaitException;
 using thousandeyes::futures::then;
 using thousandeyes::futures::all;
 using thousandeyes::futures::fromValue;
@@ -850,4 +851,23 @@ TEST_F(DefaultExecutorTest, MutuallyRecursiveFunctionsCreateDependentFutures)
     EXPECT_EQ(1821, f.get());
 
     executor->stop();
+}
+
+TEST_F(DefaultExecutorTest, ThenAfterStop)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    executor->stop();
+
+    auto f = then(getValueAsync(1821), [](future<int> f) {
+        return to_string(f.get());
+    });
+
+    auto g = then(getValueAsync(1822), [](future<int> f) {
+        return to_string(f.get());
+    });
+
+    EXPECT_THROW(f.get(), WaitableWaitException);
+    EXPECT_THROW(g.get(), WaitableWaitException);
 }
