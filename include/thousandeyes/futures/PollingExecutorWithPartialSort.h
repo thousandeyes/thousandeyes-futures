@@ -68,6 +68,9 @@ public:
     ~PollingExecutorWithPartialSort()
     {
         stop();
+
+        pollFunc_.reset();
+        dispatchFunc_.reset();
     }
 
     PollingExecutorWithPartialSort(const PollingExecutorWithPartialSort& o) = delete;
@@ -115,9 +118,6 @@ public:
         for (std::unique_ptr<Waitable>& w: pending) {
             cancel_(std::move(w), "Executor stoped");
         }
-
-        pollFunc_.reset();
-        dispatchFunc_.reset();
     }
 
 private:
