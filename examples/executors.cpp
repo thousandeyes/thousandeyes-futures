@@ -153,11 +153,18 @@ namespace {
 template<class T>
 future<T> getValueAsync(const T& value)
 {
+    static mutex m;
     static mt19937 gen;
     static uniform_int_distribution<int> dist(5, 5000000);
 
     return async(launch::async, [value]() {
-        this_thread::sleep_for(microseconds(dist(gen)));
+        microseconds delay;
+        {
+            lock_guard<mutex> lock(m);
+            delay = microseconds(dist(gen));
+        }
+
+        this_thread::sleep_for(delay);
         return value;
     });
 }

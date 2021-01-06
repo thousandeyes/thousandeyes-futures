@@ -104,11 +104,19 @@ future<void> getValueAsync()
 template<class T>
 future<T> getValueAsync(const T& value)
 {
+    static mutex m;
     static mt19937 gen;
     static uniform_int_distribution<int> dist(5, 50000);
 
     return std::async(std::launch::async, [value]() {
-        sleep_for(microseconds(dist(gen)));
+
+        microseconds delay;
+        {
+            lock_guard<mutex> lock(m);
+            delay = microseconds(dist(gen));
+        }
+
+        sleep_for(delay);
         return value;
     });
 }
