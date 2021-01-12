@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(thousandeyes-futures VERSION 0.1 LANGUAGES CXX)
+project(thousandeyes-futures VERSION 0.6 LANGUAGES CXX)
 
 add_library(thousandeyes-futures INTERFACE)
 add_library(thousandeyes::futures ALIAS thousandeyes-futures)
