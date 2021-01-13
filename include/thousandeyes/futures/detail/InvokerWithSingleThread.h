@@ -12,6 +12,7 @@
 
 #include <condition_variable>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -23,47 +24,39 @@ namespace detail {
 
 class InvokerWithSingleThread {
 public:
-    InvokerWithSingleThread()
+    InvokerWithSingleThread() :
+        state_(std::make_shared<State>())
     {
-        t_ = std::thread([this]() {
-            while (true) {
-                std::function<void()> f;
-                {
-                    std::unique_lock<std::mutex> lock(m_);
+        std::thread([s=state_]() {
+            std::unique_lock<std::mutex> lock(s->m);
 
-                    while (fs_.empty() && active_) {
-                        cv_.wait(lock);
-                    }
+            while (s->active) {
+                s->cv.wait(lock, [&s]() { return !s->active || !s->fs.empty(); });
 
-                    if (!active_) {
-                        break;
-                    }
+                while (!s->fs.empty()) {
+                    auto f = std::move(s->fs.front());
+                    s->fs.pop();
 
-                    f = std::move(fs_.front());
-                    fs_.pop();
+                    lock.unlock();
+                    f();
+                    lock.lock();
                 }
-
-                f();
             }
-        });
+        }).detach();
     }
 
     ~InvokerWithSingleThread()
     {
         bool wasActive;
         {
-            std::lock_guard<std::mutex> lock(m_);
+            std::lock_guard<std::mutex> lock(state_->m);
 
-            wasActive = active_;
-            active_ = false;
+            wasActive = state_->active;
+            state_->active = false;
         }
 
         if (wasActive) {
-            cv_.notify_one();
-        }
-
-        if (t_.joinable() && t_.get_id() != std::this_thread::get_id()) {
-            t_.join();
+            state_->cv.notify_one();
         }
     }
 
@@ -71,23 +64,26 @@ public:
     {
         bool wasEmpty;
         {
-            std::lock_guard<std::mutex> lock(m_);
+            std::lock_guard<std::mutex> lock(state_->m);
 
-            wasEmpty = fs_.empty();
-            fs_.push(std::move(f));
+            wasEmpty = state_->fs.empty();
+            state_->fs.push(std::move(f));
         }
 
         if (wasEmpty) {
-            cv_.notify_one();
+            state_->cv.notify_one();
         }
     }
 
 private:
-    std::mutex m_;
-    std::condition_variable cv_;
-    std::thread t_;
-    bool active_{ true };
-    std::queue<std::function<void()>> fs_;
+    struct State {
+        std::mutex m;
+        std::condition_variable cv;
+        bool active{ true };
+        std::queue<std::function<void()>> fs;
+    };
+
+    std::shared_ptr<State> state_;
 };
 
 } // namespace detail
