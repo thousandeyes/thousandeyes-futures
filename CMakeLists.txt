@@ -29,7 +29,6 @@ target_sources(thousandeyes-futures INTERFACE
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/InvokerWithNewThread.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/InvokerWithSingleThread.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/typetraits.h
-    ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/util.h
 )
 
 if(THOUSANDEYES_FUTURES_BUILD_EXAMPLES)
