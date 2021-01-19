@@ -200,7 +200,7 @@ TEST_F(DefaultExecutorTest, ThenWithVoidInputWithoutException)
 
     auto f = then(getValueAsync(), [](future<void> f) {
         f.get();
-        return "OK";
+        return string("OK");
     });
 
     EXPECT_EQ("OK", f.get());

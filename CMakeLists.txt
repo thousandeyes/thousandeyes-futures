@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(thousandeyes-futures VERSION 0.6 LANGUAGES CXX)
+project(thousandeyes-futures VERSION 0.7 LANGUAGES CXX)
 
 add_library(thousandeyes-futures INTERFACE)
 add_library(thousandeyes::futures ALIAS thousandeyes-futures)
@@ -29,7 +29,6 @@ target_sources(thousandeyes-futures INTERFACE
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/InvokerWithNewThread.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/InvokerWithSingleThread.h
     ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/typetraits.h
-    ${PROJECT_SOURCE_DIR}/include/thousandeyes/futures/detail/util.h
 )
 
 if(THOUSANDEYES_FUTURES_BUILD_EXAMPLES)

@@ -34,11 +34,14 @@ public:
                 s->cv.wait(lock, [&s]() { return !s->active || !s->fs.empty(); });
 
                 while (!s->fs.empty()) {
-                    auto f = std::move(s->fs.front());
+                    std::function<void()> f = std::move(s->fs.front());
                     s->fs.pop();
 
                     lock.unlock();
                     f();
+
+                    // Ensure f is destroyed before re-acquiring the lock
+                    f = std::function<void()>{ };
                     lock.lock();
                 }
             }
