@@ -53,6 +53,19 @@ struct nth_template_param<0, C<T, P...>> {
     using type = T;
 };
 
+// invoke_result_t (C++17 and higher) and
+// result_of (alias to invoke_result_t, for C++14 and lower)
+
+#if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || __cplusplus >= 201703L)
+// C++17 and higher
+template <class TFunc, class TIn>
+using invoke_result_t = std::invoke_result_t<typename std::decay<TFunc>::type, TIn>;
+#else
+// C++14 and lower
+template <class TFunc, class TIn>
+using invoke_result_t = typename std::result_of<typename std::decay<TFunc>::type(TIn)>::type;
+#endif
+
 } // namespace detail
 } // namespace futures
 } // namespace thousandeyes

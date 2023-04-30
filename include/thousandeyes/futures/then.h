@@ -27,15 +27,13 @@ namespace futures {
 template <class TIn, class TFunc>
 using cont_returns_value_t = typename std::enable_if<
     !detail::is_template<
-        typename std::result_of<typename std::decay<TFunc>::type(std::future<TIn>)>::type>::value ||
-        !std::is_same<std::future<typename detail::nth_template_param<
-                          0,
-                          typename std::result_of<typename std::decay<TFunc>::type(
-                              std::future<TIn>)>::type>::type>,
-                      typename std::result_of<typename std::decay<TFunc>::type(
-                          std::future<TIn>)>::type>::value,
-    std::future<
-        typename std::result_of<typename std::decay<TFunc>::type(std::future<TIn>)>::type>>::type;
+        detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>::value ||
+        !std::is_same<
+            std::future<typename detail::nth_template_param<
+                0,
+                detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>::type>,
+            detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>::value,
+    std::future<detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>>::type;
 
 //! \brief Creates a future that becomes ready when the input future becomes ready.
 //!
@@ -61,7 +59,7 @@ cont_returns_value_t<TIn, TFunc> then(std::shared_ptr<Executor> executor,
                                       std::future<TIn> f,
                                       TFunc&& cont)
 {
-    using TOut = typename std::result_of<typename std::decay<TFunc>::type(std::future<TIn>)>::type;
+    using TOut = detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>;
 
     std::promise<TOut> p;
 
@@ -162,14 +160,13 @@ cont_returns_value_t<TIn, TFunc> then(std::future<TIn> f, TFunc&& cont)
 template <class TIn, class TFunc>
 using cont_returns_future_t = typename std::enable_if<
     detail::is_template<
-        typename std::result_of<typename std::decay<TFunc>::type(std::future<TIn>)>::type>::value &&
-        std::is_same<std::future<typename detail::nth_template_param<
-                         0,
-                         typename std::result_of<typename std::decay<TFunc>::type(
-                             std::future<TIn>)>::type>::type>,
-                     typename std::result_of<typename std::decay<TFunc>::type(
-                         std::future<TIn>)>::type>::value,
-    typename std::result_of<typename std::decay<TFunc>::type(std::future<TIn>)>::type>::type;
+        detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>::value &&
+        std::is_same<
+            std::future<typename detail::nth_template_param<
+                0,
+                detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>::type>,
+            detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>::value,
+    detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>::type;
 
 //! \brief Creates a future that becomes ready when both the input future and the
 //! continuation future become ready.
@@ -198,7 +195,7 @@ cont_returns_future_t<TIn, TFunc> then(std::shared_ptr<Executor> executor,
 {
     using TOut = typename detail::nth_template_param<
         0,
-        typename std::result_of<typename std::decay<TFunc>::type(std::future<TIn>)>::type>::type;
+        detail::invoke_result_t<typename std::decay<TFunc>::type, std::future<TIn>>>::type;
 
     std::promise<TOut> p;
 
