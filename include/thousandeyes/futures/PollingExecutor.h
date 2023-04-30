@@ -27,12 +27,11 @@ namespace futures {
 //! \note The PollingExecutor dispatches the polling function via the TPollFunctor
 //! functor and, subsequently, dispatches a ready #Waitable via the TDispatchFunctor
 //! functor.
-template<class TPollFunctor, class TDispatchFunctor>
+template <class TPollFunctor, class TDispatchFunctor>
 class PollingExecutor :
     public Executor,
     public std::enable_shared_from_this<PollingExecutor<TPollFunctor, TDispatchFunctor>> {
 public:
-
     //! \brief Constructs a #PollingExecutor with default-constructed functors
     //! for polling and dispatching ready #Waitables
     //!
@@ -53,12 +52,9 @@ public:
                     TPollFunctor&& pollFunc,
                     TDispatchFunctor&& dispatchFunc) :
         q_(std::move(q)),
-        pollFunc_(std::make_unique<TPollFunctor>(
-            std::forward<TPollFunctor>(pollFunc)
-        )),
-        dispatchFunc_(std::make_unique<TDispatchFunctor>(
-            std::forward<TDispatchFunctor>(dispatchFunc)
-        ))
+        pollFunc_(std::make_unique<TPollFunctor>(std::forward<TPollFunctor>(pollFunc))),
+        dispatchFunc_(
+            std::make_unique<TDispatchFunctor>(std::forward<TDispatchFunctor>(dispatchFunc)))
     {}
 
     ~PollingExecutor()
@@ -96,9 +92,8 @@ public:
             return;
         }
 
-        (*pollFunc_)([this, keep=this->shared_from_this()]() {
+        (*pollFunc_)([this, keep = this->shared_from_this()]() {
             while (true) {
-
                 std::unique_ptr<Waitable> w;
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
@@ -150,9 +145,8 @@ private:
         // Using shared_ptr to enable copy-ability of the lambda, otherwise the
         // dispatchFunc_ would not be able to accept it as function<void()>
         std::shared_ptr<Waitable> wShared = std::move(w);
-        (*dispatchFunc_)([w=std::move(wShared), error=std::move(error)]() {
-            w->dispatch(error);
-        });
+        (*dispatchFunc_)(
+            [w = std::move(wShared), error = std::move(error)]() { w->dispatch(error); });
     }
 
     inline void cancel_(std::unique_ptr<Waitable> w, const std::string& message)
@@ -165,8 +159,8 @@ private:
 
     std::mutex mutex_;
     std::queue<std::unique_ptr<Waitable>> waitables_;
-    bool active_{ true };
-    bool isPollerRunning_{ false };
+    bool active_{true};
+    bool isPollerRunning_{false};
 
     std::unique_ptr<TPollFunctor> pollFunc_;
     std::unique_ptr<TDispatchFunctor> dispatchFunc_;

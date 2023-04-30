@@ -20,7 +20,7 @@ namespace thousandeyes {
 namespace futures {
 namespace detail {
 
-template<int N, class T>
+template <int N, class T>
 struct TupleItemsWaitFor {
     bool operator()(T& t, const std::chrono::microseconds& timeout)
     {
@@ -31,7 +31,7 @@ struct TupleItemsWaitFor {
     }
 };
 
-template<class T>
+template <class T>
 struct TupleItemsWaitFor<0, T> {
     bool operator()(T& t, const std::chrono::microseconds& timeout)
     {
@@ -39,7 +39,7 @@ struct TupleItemsWaitFor<0, T> {
     }
 };
 
-template<typename... Args>
+template <typename... Args>
 class FutureWithTuple : public TimedWaitable {
 public:
     FutureWithTuple(std::chrono::microseconds waitLimit,
@@ -58,8 +58,8 @@ public:
 
     bool timedWait(const std::chrono::microseconds& timeout) override
     {
-        return TupleItemsWaitFor<sizeof...(Args) - 1,
-                                 std::tuple<std::future<Args>...>>()(futures_, timeout);
+        return TupleItemsWaitFor<sizeof...(Args) - 1, std::tuple<std::future<Args>...>>()(futures_,
+                                                                                          timeout);
     }
 
     void dispatch(std::exception_ptr err) override

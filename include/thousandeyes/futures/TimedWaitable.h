@@ -23,8 +23,7 @@ namespace futures {
 //! \sa TimedWaitable
 class WaitableTimedOutException : public WaitableWaitException {
 public:
-    explicit WaitableTimedOutException(const std::string& error) :
-        WaitableWaitException(error)
+    explicit WaitableTimedOutException(const std::string& error) : WaitableWaitException(error)
     {}
 };
 

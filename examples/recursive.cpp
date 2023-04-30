@@ -11,12 +11,12 @@
 #include <functional>
 #include <future>
 #include <iostream>
+#include <memory>
 #include <numeric>
 #include <string>
-#include <memory>
 
-#include <thousandeyes/futures/DefaultExecutor.h>
 #include <thousandeyes/futures/all.h>
+#include <thousandeyes/futures/DefaultExecutor.h>
 #include <thousandeyes/futures/then.h>
 #include <thousandeyes/futures/util.h>
 
@@ -38,9 +38,7 @@ future<int> recFunc1(int count)
         return count + 1;
     });
 
-    return then(move(h), [](future<int> g) {
-        return recFunc2(move(g));
-    });
+    return then(move(h), [](future<int> g) { return recFunc2(move(g)); });
 }
 
 future<int> recFunc2(future<int> f)
@@ -53,9 +51,7 @@ future<int> recFunc2(future<int> f)
         return fromValue(1821);
     }
 
-    auto h = async(launch::async, []() {
-        this_thread::sleep_for(milliseconds(1));
-    });
+    auto h = async(launch::async, []() { this_thread::sleep_for(milliseconds(1)); });
 
     return then(move(h), [count](future<void> g) {
         g.get();

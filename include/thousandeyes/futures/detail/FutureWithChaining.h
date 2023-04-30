@@ -13,15 +13,15 @@
 #include <future>
 #include <memory>
 
+#include <thousandeyes/futures/detail/FutureWithForwarding.h>
 #include <thousandeyes/futures/Executor.h>
 #include <thousandeyes/futures/TimedWaitable.h>
-#include <thousandeyes/futures/detail/FutureWithForwarding.h>
 
 namespace thousandeyes {
 namespace futures {
 namespace detail {
 
-template<class TIn, class TOut, class TFunc>
+template <class TIn, class TOut, class TFunc>
 class FutureWithChaining : public TimedWaitable {
 public:
     FutureWithChaining(std::chrono::microseconds waitLimit,

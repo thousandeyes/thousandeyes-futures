@@ -25,34 +25,33 @@ using std::function;
 using std::make_shared;
 using std::make_unique;
 using std::move;
+using std::runtime_error;
 using std::shared_ptr;
+using std::string;
 using std::unique_ptr;
 using std::weak_ptr;
-using std::string;
-using std::runtime_error;
+using std::chrono::duration_cast;
 using std::chrono::hours;
+using std::chrono::microseconds;
+using std::chrono::milliseconds;
 using std::chrono::minutes;
 using std::chrono::seconds;
-using std::chrono::milliseconds;
-using std::chrono::microseconds;
-using std::chrono::duration_cast;
 using std::this_thread::sleep_for;
 
+using thousandeyes::futures::TimedWaitable;
 using thousandeyes::futures::Waitable;
 using thousandeyes::futures::WaitableTimedOutException;
-using thousandeyes::futures::TimedWaitable;
 
+using ::testing::_;
 using ::testing::Return;
 using ::testing::Test;
 using ::testing::Throw;
-using ::testing::_;
 
 namespace {
 
 class TimedWaitableMock : public TimedWaitable {
 public:
-    explicit TimedWaitableMock(microseconds timeout) :
-        TimedWaitable(move(timeout))
+    explicit TimedWaitableMock(microseconds timeout) : TimedWaitable(move(timeout))
     {}
 
     MOCK_METHOD1(timedWait, bool(const std::chrono::microseconds& timeout));
@@ -66,8 +65,7 @@ TEST(TimedWaitableTest, Ready)
 {
     auto waitable = make_unique<TimedWaitableMock>(hours(1821));
 
-    EXPECT_CALL(*waitable, timedWait(microseconds(10000)))
-        .WillOnce(Return(true));
+    EXPECT_CALL(*waitable, timedWait(microseconds(10000))).WillOnce(Return(true));
 
     auto result = waitable->wait(microseconds(10000));
 
@@ -92,40 +90,33 @@ TEST(TimedWaitableTest, ErrorDuringWait)
 {
     auto waitable = make_unique<TimedWaitableMock>(minutes(1822));
 
-    EXPECT_CALL(*waitable, timedWait(microseconds(10000)))
-        .WillOnce(Throw(runtime_error("Oops!")));
+    EXPECT_CALL(*waitable, timedWait(microseconds(10000))).WillOnce(Throw(runtime_error("Oops!")));
 
-    EXPECT_THROW(waitable->wait(milliseconds(10)),
-                 runtime_error);
+    EXPECT_THROW(waitable->wait(milliseconds(10)), runtime_error);
 }
 
 TEST(TimedWaitableTest, ExpiredAndNotReady)
 {
     auto waitable = make_unique<TimedWaitableMock>(milliseconds(30));
 
-    EXPECT_CALL(*waitable, timedWait(microseconds(10000)))
-        .WillOnce(Return(false));
+    EXPECT_CALL(*waitable, timedWait(microseconds(10000))).WillOnce(Return(false));
 
-    EXPECT_CALL(*waitable, timedWait(microseconds(0)))
-        .WillOnce(Return(false));
+    EXPECT_CALL(*waitable, timedWait(microseconds(0))).WillOnce(Return(false));
 
     EXPECT_EQ(false, waitable->wait(milliseconds(10)));
 
     sleep_for(milliseconds(40));
 
-    EXPECT_THROW(waitable->wait(milliseconds(10)),
-                 WaitableTimedOutException);
+    EXPECT_THROW(waitable->wait(milliseconds(10)), WaitableTimedOutException);
 }
 
 TEST(TimedWaitableTest, ExpiredAndReady)
 {
     auto waitable = make_unique<TimedWaitableMock>(milliseconds(30));
 
-    EXPECT_CALL(*waitable, timedWait(microseconds(10000)))
-        .WillOnce(Return(false));
+    EXPECT_CALL(*waitable, timedWait(microseconds(10000))).WillOnce(Return(false));
 
-    EXPECT_CALL(*waitable, timedWait(microseconds(0)))
-        .WillOnce(Return(true));
+    EXPECT_CALL(*waitable, timedWait(microseconds(0))).WillOnce(Return(true));
 
     EXPECT_EQ(false, waitable->wait(milliseconds(10)));
 

@@ -22,8 +22,7 @@ namespace futures {
 //! \sa Waitable
 class WaitableWaitException : public std::runtime_error {
 public:
-    explicit WaitableWaitException(const std::string& reason) :
-        std::runtime_error(reason)
+    explicit WaitableWaitException(const std::string& reason) : std::runtime_error(reason)
     {}
 };
 
@@ -32,7 +31,7 @@ public:
 //! \param t The timepoint to convert to an epoch timestamp.
 //!
 //! \returns the time of milliseconds since the Epoch.
-template<class TClock, class TDuration>
+template <class TClock, class TDuration>
 std::chrono::milliseconds toEpochTimestamp(const std::chrono::time_point<TClock, TDuration>& t)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch());
@@ -108,7 +107,7 @@ public:
     }
 
 private:
-    std::chrono::milliseconds epochDeadline_{ 0 };
+    std::chrono::milliseconds epochDeadline_{0};
 };
 
 } // namespace futures

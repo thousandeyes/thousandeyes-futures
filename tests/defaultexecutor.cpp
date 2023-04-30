@@ -8,8 +8,8 @@
  * @author Giannis Georgalis, https://github.com/ggeorgalis
  */
 
-#include <atomic>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <future>
@@ -17,91 +17,88 @@
 #include <memory>
 #include <mutex>
 #include <random>
-#include <string>
 #include <stdexcept>
-#include <type_traits>
+#include <string>
 #include <thread>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <thousandeyes/futures/all.h>
+#include <thousandeyes/futures/DefaultExecutor.h>
 #include <thousandeyes/futures/then.h>
 #include <thousandeyes/futures/util.h>
-#include <thousandeyes/futures/DefaultExecutor.h>
 
 using std::array;
 using std::bind;
+using std::exception;
 using std::function;
 using std::future;
 using std::future_status;
-using std::promise;
-using std::map;
+using std::get;
+using std::lock_guard;
 using std::make_shared;
-using std::make_unique;
 using std::make_tuple;
-using std::shared_ptr;
-using std::unique_ptr;
-using std::exception;
+using std::make_unique;
+using std::map;
+using std::mt19937;
+using std::mutex;
+using std::promise;
 using std::reference_wrapper;
 using std::runtime_error;
+using std::shared_ptr;
 using std::string;
-using std::lock_guard;
-using std::mutex;
 using std::thread;
-using std::tuple;
-using std::get;
 using std::to_string;
-using std::vector;
-using std::mt19937;
+using std::tuple;
 using std::uniform_int_distribution;
+using std::unique_ptr;
+using std::vector;
+using std::chrono::duration_cast;
 using std::chrono::hours;
+using std::chrono::microseconds;
+using std::chrono::milliseconds;
 using std::chrono::minutes;
 using std::chrono::seconds;
-using std::chrono::milliseconds;
-using std::chrono::microseconds;
-using std::chrono::duration_cast;
 using std::this_thread::sleep_for;
 
+using thousandeyes::futures::all;
 using thousandeyes::futures::Default;
 using thousandeyes::futures::DefaultExecutor;
 using thousandeyes::futures::Executor;
+using thousandeyes::futures::fromException;
+using thousandeyes::futures::fromValue;
+using thousandeyes::futures::then;
 using thousandeyes::futures::Waitable;
 using thousandeyes::futures::WaitableWaitException;
-using thousandeyes::futures::then;
-using thousandeyes::futures::all;
-using thousandeyes::futures::fromValue;
-using thousandeyes::futures::fromException;
 
 namespace detail = thousandeyes::futures::detail;
 
+using ::testing::_;
 using ::testing::Range;
 using ::testing::Return;
 using ::testing::SaveArg;
 using ::testing::Test;
 using ::testing::TestWithParam;
 using ::testing::Throw;
-using ::testing::_;
 
 namespace {
 
 class SomeKindOfError : public runtime_error {
 public:
-    SomeKindOfError() :
-        runtime_error("Some Kind Of Error")
+    SomeKindOfError() : runtime_error("Some Kind Of Error")
     {}
 };
 
 future<void> getValueAsync()
 {
-    return std::async(std::launch::async, []() {
-        sleep_for(milliseconds(1));
-    });
+    return std::async(std::launch::async, []() { sleep_for(milliseconds(1)); });
 }
 
-template<class T>
+template <class T>
 future<T> getValueAsync(const T& value)
 {
     static mutex m;
@@ -109,7 +106,6 @@ future<T> getValueAsync(const T& value)
     static uniform_int_distribution<int> dist(5, 50000);
 
     return std::async(std::launch::async, [value]() {
-
         microseconds delay;
         {
             lock_guard<mutex> lock(m);
@@ -121,7 +117,7 @@ future<T> getValueAsync(const T& value)
     });
 }
 
-template<class T, class TException>
+template <class T, class TException>
 future<T> getExceptionAsync()
 {
     return std::async(std::launch::async, []() {
@@ -130,12 +126,10 @@ future<T> getExceptionAsync()
     });
 }
 
-template<class TException>
+template <class TException>
 future<void> getExceptionAsync()
 {
-    return std::async(std::launch::async, []() {
-        throw TException();
-    });
+    return std::async(std::launch::async, []() { throw TException(); });
 }
 
 } // namespace
@@ -149,9 +143,7 @@ TEST_F(DefaultExecutorTest, SetValueAtExitSanityCheck)
 {
     auto p = make_shared<promise<int>>();
 
-    thread([p]() {
-        p->set_value_at_thread_exit(1821);
-    }).detach();
+    thread([p]() { p->set_value_at_thread_exit(1821); }).detach();
 
     future<int> f = p->get_future();
     future_status status = f.wait_for(milliseconds(1821));
@@ -165,13 +157,9 @@ TEST_F(DefaultExecutorTest, ThenWithoutException)
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
 
-    auto f = then(getValueAsync(1821), [](future<int> f) {
-        return to_string(f.get());
-    });
+    auto f = then(getValueAsync(1821), [](future<int> f) { return to_string(f.get()); });
 
-    auto g = then(getValueAsync(1822), [](future<int> f) {
-        return to_string(f.get());
-    });
+    auto g = then(getValueAsync(1822), [](future<int> f) { return to_string(f.get()); });
 
     EXPECT_EQ("1821", f.get());
     EXPECT_EQ("1822", g.get());
@@ -184,9 +172,8 @@ TEST_F(DefaultExecutorTest, ThenWithException)
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
 
-    auto f = then(getExceptionAsync<int, SomeKindOfError>(), [](future<int> f) {
-        return to_string(f.get());
-    });
+    auto f = then(getExceptionAsync<int, SomeKindOfError>(),
+                  [](future<int> f) { return to_string(f.get()); });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
 
@@ -229,9 +216,7 @@ TEST_F(DefaultExecutorTest, ThenWithVoidOutputWithoutException)
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
 
-    auto f = then(getValueAsync(1821), [](future<int> f) {
-        EXPECT_EQ(1821, f.get());
-    });
+    auto f = then(getValueAsync(1821), [](future<int> f) { EXPECT_EQ(1821, f.get()); });
 
     EXPECT_NO_THROW(f.get());
 
@@ -258,9 +243,7 @@ TEST_F(DefaultExecutorTest, ThenWithVoidInputAndOutputWithoutException)
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
 
-    auto f = then(getValueAsync(), [](future<void> f) {
-        EXPECT_NO_THROW(f.get());
-    });
+    auto f = then(getValueAsync(), [](future<void> f) { EXPECT_NO_THROW(f.get()); });
 
     EXPECT_NO_THROW(f.get());
 
@@ -287,9 +270,7 @@ TEST_F(DefaultExecutorTest, IdentityChainingThenWithoutException)
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
 
-    auto f = then(getValueAsync(1821), [](future<int> f) {
-        return f;
-    });
+    auto f = then(getValueAsync(1821), [](future<int> f) { return f; });
 
     EXPECT_EQ(1821, f.get());
 
@@ -301,9 +282,7 @@ TEST_F(DefaultExecutorTest, ForwardingThenWithoutException)
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
 
-    auto f = then(getValueAsync(), [](future<void> f) {
-        return fromValue();
-    });
+    auto f = then(getValueAsync(), [](future<void> f) { return fromValue(); });
 
     EXPECT_NO_THROW(f.get());
 
@@ -369,9 +348,7 @@ TEST_F(DefaultExecutorTest, ThenWithoutExceptionMultipleFutures)
 
     vector<future<string>> f;
     for (int i = 0; i < 1821; ++i) {
-        f.push_back(then(getValueAsync(i), [](future<int> f) {
-            return to_string(f.get());
-        }));
+        f.push_back(then(getValueAsync(i), [](future<int> f) { return to_string(f.get()); }));
     }
 
     for (int i = 0; i < 1821; ++i) {
@@ -398,9 +375,7 @@ TEST_F(DefaultExecutorTest, ThenWithExceptionInInputPromise)
         }
     }).detach();
 
-    auto f = then(p->get_future(), [](future<int> f) {
-        return to_string(f.get());
-    });
+    auto f = then(p->get_future(), [](future<int> f) { return to_string(f.get()); });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
 
@@ -446,9 +421,7 @@ TEST_F(DefaultExecutorTest, ThenWithExceptionInOutputPromise)
 
     auto p = make_shared<promise<int>>();
 
-    thread([p]() {
-        p->set_value_at_thread_exit(1821);
-    }).detach();
+    thread([p]() { p->set_value_at_thread_exit(1821); }).detach();
 
     auto f = then(p->get_future(), [](future<int> f) {
         throw SomeKindOfError();
@@ -559,7 +532,7 @@ TEST_F(DefaultExecutorTest, ContainerAllSum)
     auto f = then(all(move(futures)), [](future<vector<future<int>>> f) {
         int currSum = 0;
         auto futures = f.get();
-        for (auto& fi: futures) {
+        for (auto& fi : futures) {
             currSum += fi.get();
         }
         return currSum;
@@ -585,16 +558,16 @@ TEST_F(DefaultExecutorTest, ContainerViaIteratorsAllSum)
 
     // WARNING, WARNING, WARNING:
     // vector<future<int>> futures has to stay alive until the all() future becomes ready
-    auto f = then(all(futures.begin(), futures.end()),
-                  [](future<tuple<vector<future<int>>::iterator,
-                                  vector<future<int>>::iterator>> f) {
-        int currSum = 0;
-        auto range = f.get();
-        for (auto iter = get<0>(range); iter != get<1>(range); ++iter) {
-            currSum += iter->get();
-        }
-        return currSum;
-    });
+    auto f =
+        then(all(futures.begin(), futures.end()),
+             [](future<tuple<vector<future<int>>::iterator, vector<future<int>>::iterator>> f) {
+                 int currSum = 0;
+                 auto range = f.get();
+                 for (auto iter = get<0>(range); iter != get<1>(range); ++iter) {
+                     currSum += iter->get();
+                 }
+                 return currSum;
+             });
 
     EXPECT_EQ(targetSum, f.get());
 
@@ -621,9 +594,7 @@ TEST_F(DefaultExecutorTest, ContainerAllWithoutException)
 
     vector<future<string>> futures;
     for (int i = 0; i < 1821; ++i) {
-        futures.push_back(then(getValueAsync(i), [](future<int> f) {
-            return to_string(f.get());
-        }));
+        futures.push_back(then(getValueAsync(i), [](future<int> f) { return to_string(f.get()); }));
     }
 
     auto f = all(move(futures)).get();
@@ -655,9 +626,7 @@ TEST_F(DefaultExecutorTest, ArrayAllWithoutException)
 
     array<future<string>, 1821> futures;
     for (int i = 0; i < 1821; ++i) {
-        futures[i] = then(getValueAsync(i), [](future<int> f) {
-            return to_string(f.get());
-        });
+        futures[i] = then(getValueAsync(i), [](future<int> f) { return to_string(f.get()); });
     }
 
     auto f = all(move(futures)).get();
@@ -676,14 +645,11 @@ TEST_P(DefaultExecutorTest, ArrayAllWithExceptionWithParam)
 
     array<future<string>, 1821> futures;
     for (int i = 0; i < 1821; ++i) {
-
         if (i == GetParam()) {
             futures[i] = getExceptionAsync<string, SomeKindOfError>();
         }
         else {
-            futures[i] = then(getValueAsync(i), [](future<int> f) {
-                return to_string(f.get());
-            });
+            futures[i] = then(getValueAsync(i), [](future<int> f) { return to_string(f.get()); });
         }
     }
 
@@ -710,9 +676,9 @@ TEST_F(DefaultExecutorTest, TupleAllWithExplicitTupleWithoutException)
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
     Default<Executor>::Setter execSetter(executor);
 
-    auto t = all(make_tuple(getValueAsync(1821),
-                            getValueAsync(string("1822")),
-                            getValueAsync(true))).get();
+    auto t =
+        all(make_tuple(getValueAsync(1821), getValueAsync(string("1822")), getValueAsync(true)))
+            .get();
 
     EXPECT_EQ(get<0>(t).get(), 1821);
     EXPECT_EQ(get<1>(t).get(), "1822");
@@ -764,16 +730,16 @@ TEST_F(DefaultExecutorTest, TupleAllWithContinuationWithoutException)
     auto f1 = getValueAsync(string("1822"));
     auto f2 = getValueAsync(true);
 
-    auto f = then(all(move(f0), move(f1), move(f2)),
-                  [](future<tuple<future<int>, future<string>, future<bool>>> f) {
-                      future<int> f0;
-                      future<string> f1;
-                      future<bool> f2;
-                      std::tie(f0, f1, f2) = f.get();
+    auto f =
+        then(all(move(f0), move(f1), move(f2)),
+             [](future<tuple<future<int>, future<string>, future<bool>>> f) {
+                 future<int> f0;
+                 future<string> f1;
+                 future<bool> f2;
+                 std::tie(f0, f1, f2) = f.get();
 
-                      return to_string(f0.get()) + '_' + f1.get() + '_' +
-                        (f2.get() ? "true" : "false");
-                  });
+                 return to_string(f0.get()) + '_' + f1.get() + '_' + (f2.get() ? "true" : "false");
+             });
 
     EXPECT_EQ(f.get(), "1821_1822_true");
 
@@ -787,15 +753,16 @@ TEST_F(DefaultExecutorTest, TupleAllWithException)
 
     auto t0 = all(getExceptionAsync<int, SomeKindOfError>(),
                   getValueAsync(string("1822")),
-                  getValueAsync(true)).get();
+                  getValueAsync(true))
+                  .get();
 
     EXPECT_THROW(get<0>(t0).get(), SomeKindOfError);
     EXPECT_EQ(get<1>(t0).get(), "1822");
     EXPECT_EQ(get<2>(t0).get(), true);
 
-    auto t1 = all(getValueAsync(1821),
-                  getExceptionAsync<string, SomeKindOfError>(),
-                  getValueAsync(true)).get();
+    auto t1 =
+        all(getValueAsync(1821), getExceptionAsync<string, SomeKindOfError>(), getValueAsync(true))
+            .get();
 
     EXPECT_EQ(get<0>(t1).get(), 1821);
     EXPECT_THROW(get<1>(t1).get(), SomeKindOfError);
@@ -803,7 +770,8 @@ TEST_F(DefaultExecutorTest, TupleAllWithException)
 
     auto t2 = all(getValueAsync(1821),
                   getValueAsync(string("1822")),
-                  getExceptionAsync<bool, SomeKindOfError>()).get();
+                  getExceptionAsync<bool, SomeKindOfError>())
+                  .get();
 
     EXPECT_EQ(get<0>(t2).get(), 1821);
     EXPECT_EQ(get<1>(t2).get(), "1822");
@@ -824,9 +792,7 @@ future<int> recFunc1(int count)
         return count + 1;
     });
 
-    return then(move(h), [](future<int> g) {
-        return recFunc2(move(g));
-    });
+    return then(move(h), [](future<int> g) { return recFunc2(move(g)); });
 }
 
 future<int> recFunc2(future<int> f)
@@ -837,9 +803,7 @@ future<int> recFunc2(future<int> f)
         return fromValue(1821);
     }
 
-    auto h = std::async(std::launch::async, []() {
-        sleep_for(milliseconds(1));
-    });
+    auto h = std::async(std::launch::async, []() { sleep_for(milliseconds(1)); });
 
     return then(move(h), [count](future<void> g) {
         g.get();
@@ -868,13 +832,9 @@ TEST_F(DefaultExecutorTest, ThenAfterStop)
 
     executor->stop();
 
-    auto f = then(getValueAsync(1821), [](future<int> f) {
-        return to_string(f.get());
-    });
+    auto f = then(getValueAsync(1821), [](future<int> f) { return to_string(f.get()); });
 
-    auto g = then(getValueAsync(1822), [](future<int> f) {
-        return to_string(f.get());
-    });
+    auto g = then(getValueAsync(1822), [](future<int> f) { return to_string(f.get()); });
 
     EXPECT_THROW(f.get(), WaitableWaitException);
     EXPECT_THROW(g.get(), WaitableWaitException);

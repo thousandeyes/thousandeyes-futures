@@ -24,10 +24,9 @@ namespace detail {
 
 class InvokerWithSingleThread {
 public:
-    InvokerWithSingleThread() :
-        state_(std::make_shared<State>())
+    InvokerWithSingleThread() : state_(std::make_shared<State>())
     {
-        std::thread([s=state_]() {
+        std::thread([s = state_]() {
             std::unique_lock<std::mutex> lock(s->m);
 
             while (s->active) {
@@ -41,7 +40,7 @@ public:
                     f();
 
                     // Ensure f is destroyed before re-acquiring the lock
-                    f = std::function<void()>{ };
+                    f = std::function<void()>{};
                     lock.lock();
                 }
             }
@@ -82,7 +81,7 @@ private:
     struct State {
         std::mutex m;
         std::condition_variable cv;
-        bool active{ true };
+        bool active{true};
         std::queue<std::function<void()>> fs;
     };
 

@@ -23,7 +23,7 @@ namespace futures {
 //! the given value.
 //!
 //! \param value The value to make the future ready with.
-template<class T>
+template <class T>
 std::future<typename std::decay<T>::type> fromValue(T&& value)
 {
     using Output = typename std::decay<T>::type;
@@ -45,7 +45,7 @@ inline std::future<void> fromValue()
 //! the exception stored in the given #std::exception_ptr.
 //!
 //! \param exc The exception to make the future ready with.
-template<class T>
+template <class T>
 std::future<typename std::decay<T>::type> fromException(std::exception_ptr exc)
 {
     using Output = typename std::decay<T>::type;

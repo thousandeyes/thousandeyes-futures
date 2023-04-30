@@ -13,15 +13,14 @@
 #include <future>
 #include <iterator>
 #include <memory>
-#include <type_traits>
 #include <tuple>
-
-#include <thousandeyes/futures/detail/FutureWithContainer.h>
-#include <thousandeyes/futures/detail/FutureWithTuple.h>
-#include <thousandeyes/futures/detail/FutureWithIterators.h>
-#include <thousandeyes/futures/detail/typetraits.h>
+#include <type_traits>
 
 #include <thousandeyes/futures/Default.h>
+#include <thousandeyes/futures/detail/FutureWithContainer.h>
+#include <thousandeyes/futures/detail/FutureWithIterators.h>
+#include <thousandeyes/futures/detail/FutureWithTuple.h>
+#include <thousandeyes/futures/detail/typetraits.h>
 #include <thousandeyes/futures/Executor.h>
 
 namespace thousandeyes {
@@ -44,7 +43,7 @@ namespace futures {
 //!
 //! \return An std::future<TContainer> that contains all the input futures, where
 //! all the contained futures are ready.
-template<class TContainer>
+template <class TContainer>
 std::future<typename std::decay<TContainer>::type> all(std::shared_ptr<Executor> executor,
                                                        std::chrono::microseconds timeLimit,
                                                        TContainer&& futures)
@@ -53,11 +52,10 @@ std::future<typename std::decay<TContainer>::type> all(std::shared_ptr<Executor>
 
     auto result = p.get_future();
 
-    executor->watch(std::make_unique<detail::FutureWithContainer<TContainer>>(
-        std::move(timeLimit),
-        std::forward<TContainer>(futures),
-        std::move(p)
-    ));
+    executor->watch(
+        std::make_unique<detail::FutureWithContainer<TContainer>>(std::move(timeLimit),
+                                                                  std::forward<TContainer>(futures),
+                                                                  std::move(p)));
 
     return result;
 }
@@ -78,7 +76,7 @@ std::future<typename std::decay<TContainer>::type> all(std::shared_ptr<Executor>
 //!
 //! \return An std::future<TContainer> that contains all the input futures, where
 //! all the contained futures are ready.
-template<class TContainer>
+template <class TContainer>
 std::future<typename std::decay<TContainer>::type> all(std::shared_ptr<Executor> executor,
                                                        TContainer&& futures)
 {
@@ -105,7 +103,7 @@ std::future<typename std::decay<TContainer>::type> all(std::shared_ptr<Executor>
 //!
 //! \return An std::future<TContainer> that contains all the input futures, where
 //! all the contained futures are ready.
-template<class TContainer>
+template <class TContainer>
 std::future<typename std::decay<TContainer>::type> all(std::chrono::microseconds timeLimit,
                                                        TContainer&& futures)
 {
@@ -131,11 +129,10 @@ std::future<typename std::decay<TContainer>::type> all(std::chrono::microseconds
 //!
 //! \return An std::future<TContainer> that contains all the input futures, where
 //! all the contained futures are ready.
-template<class TContainer>
+template <class TContainer>
 std::future<typename std::decay<TContainer>::type> all(TContainer&& futures)
 {
-    return all<TContainer>(std::chrono::hours(1),
-                           std::forward<TContainer>(futures));
+    return all<TContainer>(std::chrono::hours(1), std::forward<TContainer>(futures));
 }
 
 //! \brief Creates a future that becomes ready when all the input futures become ready.
@@ -155,7 +152,7 @@ std::future<typename std::decay<TContainer>::type> all(TContainer&& futures)
 //!
 //! \return An std::future<std::tuple> that contains all the input futures, where
 //! all the contained futures are ready.
-template<typename... Args>
+template <typename... Args>
 std::future<std::tuple<std::future<Args>...>> all(std::shared_ptr<Executor> executor,
                                                   std::chrono::microseconds timeLimit,
                                                   std::tuple<std::future<Args>...> futures)
@@ -164,11 +161,9 @@ std::future<std::tuple<std::future<Args>...>> all(std::shared_ptr<Executor> exec
 
     auto result = p.get_future();
 
-    executor->watch(std::make_unique<detail::FutureWithTuple<Args...>>(
-        std::move(timeLimit),
-        std::move(futures),
-        std::move(p)
-    ));
+    executor->watch(std::make_unique<detail::FutureWithTuple<Args...>>(std::move(timeLimit),
+                                                                       std::move(futures),
+                                                                       std::move(p)));
 
     return result;
 }
@@ -189,13 +184,11 @@ std::future<std::tuple<std::future<Args>...>> all(std::shared_ptr<Executor> exec
 //!
 //! \return An std::future<std::tuple> that contains all the input futures, where
 //! all the contained futures are ready.
-template<typename... Args>
+template <typename... Args>
 std::future<std::tuple<std::future<Args>...>> all(std::shared_ptr<Executor> executor,
                                                   std::tuple<std::future<Args>...> futures)
 {
-    return all<Args...>(std::move(executor),
-                        std::chrono::hours(1),
-                        std::move(futures));
+    return all<Args...>(std::move(executor), std::chrono::hours(1), std::move(futures));
 }
 
 //! \brief Creates a future that becomes ready when all the input futures become ready.
@@ -216,13 +209,11 @@ std::future<std::tuple<std::future<Args>...>> all(std::shared_ptr<Executor> exec
 //!
 //! \return An std::future<std::tuple> that contains all the input futures, where
 //! all the contained futures are ready.
-template<typename... Args>
+template <typename... Args>
 std::future<std::tuple<std::future<Args>...>> all(std::chrono::microseconds timeLimit,
                                                   std::tuple<std::future<Args>...> futures)
 {
-    return all<Args...>(Default<Executor>(),
-                        std::move(timeLimit),
-                        std::move(futures));
+    return all<Args...>(Default<Executor>(), std::move(timeLimit), std::move(futures));
 }
 
 //! \brief Creates a future that becomes ready when all the input futures become ready.
@@ -242,11 +233,10 @@ std::future<std::tuple<std::future<Args>...>> all(std::chrono::microseconds time
 //!
 //! \return An std::future<std::tuple> that contains all the input futures, where
 //! all the contained futures are ready.
-template<typename... Args>
+template <typename... Args>
 std::future<std::tuple<std::future<Args>...>> all(std::tuple<std::future<Args>...> futures)
 {
-    return all<Args...>(std::chrono::hours(1),
-                        std::move(futures));
+    return all<Args...>(std::chrono::hours(1), std::move(futures));
 }
 
 //! \brief Creates a future that becomes ready when all the input futures become ready.
@@ -266,19 +256,18 @@ std::future<std::tuple<std::future<Args>...>> all(std::tuple<std::future<Args>..
 //!
 //! \return An std::future<std::tuple> that contains all the input futures, where
 //! all the contained futures are ready.
-template<typename Arg, typename... Args>
+template <typename Arg, typename... Args>
 std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(
     std::shared_ptr<Executor> executor,
     std::chrono::microseconds timeLimit,
     std::future<Arg> future,
-    std::future<Args>... futures
-)
+    std::future<Args>... futures)
 {
     using Tuple = std::tuple<std::future<Arg>, std::future<Args>...>;
 
     return all<Arg, Args...>(executor,
                              std::move(timeLimit),
-                             Tuple{ std::move(future), std::move(futures)... });
+                             Tuple{std::move(future), std::move(futures)...});
 }
 
 //! \brief Creates a future that becomes ready when all the input futures become ready.
@@ -297,12 +286,9 @@ std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(
 //!
 //! \return An std::future<std::tuple> that contains all the input futures, where
 //! all the contained futures are ready.
-template<typename Arg, typename... Args>
-std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(
-    std::shared_ptr<Executor> executor,
-    std::future<Arg> future,
-    std::future<Args>... futures
-)
+template <typename Arg, typename... Args>
+std::future<std::tuple<std::future<Arg>, std::future<Args>...>>
+all(std::shared_ptr<Executor> executor, std::future<Arg> future, std::future<Args>... futures)
 {
     return all<Arg, Args...>(std::move(executor),
                              std::chrono::hours(1),
@@ -328,10 +314,9 @@ std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(
 //!
 //! \return An std::future<std::tuple> that contains all the input futures, where
 //! all the contained futures are ready.
-template<typename Arg, typename... Args>
-std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(std::chrono::microseconds timeLimit,
-                                                                    std::future<Arg> future,
-                                                                    std::future<Args>... futures)
+template <typename Arg, typename... Args>
+std::future<std::tuple<std::future<Arg>, std::future<Args>...>>
+all(std::chrono::microseconds timeLimit, std::future<Arg> future, std::future<Args>... futures)
 {
     return all<Arg, Args...>(Default<Executor>(),
                              std::move(timeLimit),
@@ -356,7 +341,7 @@ std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(std::chrono:
 //!
 //! \return An std::future<std::tuple> that contains all the input futures, where
 //! all the contained futures are ready.
-template<typename Arg, typename... Args>
+template <typename Arg, typename... Args>
 std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(std::future<Arg> future,
                                                                     std::future<Args>... futures)
 {
@@ -367,15 +352,11 @@ std::future<std::tuple<std::future<Arg>, std::future<Args>...>> all(std::future<
 }
 
 //! \brief SFINAE meta-type that resolves to a forward iterator range.
-template<class TIterator>
-using all_accepts_fwd_iterator_t =
-    typename std::enable_if<
-        std::is_convertible<
-            typename std::iterator_traits<TIterator>::iterator_category,
-            std::forward_iterator_tag
-        >::value,
-        std::future<std::tuple<TIterator, TIterator>>
-    >::type;
+template <class TIterator>
+using all_accepts_fwd_iterator_t = typename std::enable_if<
+    std::is_convertible<typename std::iterator_traits<TIterator>::iterator_category,
+                        std::forward_iterator_tag>::value,
+    std::future<std::tuple<TIterator, TIterator>>>::type;
 
 //! \brief Creates a future that becomes ready when all the input futures become ready.
 //!
@@ -400,7 +381,7 @@ using all_accepts_fwd_iterator_t =
 //!
 //! \return A std::future<std::tuple> with the input ForwardIterators, where all the
 //! futures in range [first, last) are ready.
-template<class TForwardIterator>
+template <class TForwardIterator>
 all_accepts_fwd_iterator_t<TForwardIterator> all(std::shared_ptr<Executor> executor,
                                                  std::chrono::microseconds timeLimit,
                                                  TForwardIterator first,
@@ -410,12 +391,11 @@ all_accepts_fwd_iterator_t<TForwardIterator> all(std::shared_ptr<Executor> execu
 
     auto result = p.get_future();
 
-    executor->watch(std::make_unique<detail::FutureWithIterators<TForwardIterator>>(
-        std::move(timeLimit),
-        first,
-        last,
-        std::move(p)
-    ));
+    executor->watch(
+        std::make_unique<detail::FutureWithIterators<TForwardIterator>>(std::move(timeLimit),
+                                                                        first,
+                                                                        last,
+                                                                        std::move(p)));
 
     return result;
 }
@@ -442,15 +422,12 @@ all_accepts_fwd_iterator_t<TForwardIterator> all(std::shared_ptr<Executor> execu
 //!
 //! \return A std::future<std::tuple> with the input ForwardIterators, where all the
 //! futures in range [first, last) are ready.
-template<class TForwardIterator>
+template <class TForwardIterator>
 all_accepts_fwd_iterator_t<TForwardIterator> all(std::shared_ptr<Executor> executor,
                                                  TForwardIterator first,
                                                  TForwardIterator last)
 {
-    return all<TForwardIterator>(std::move(executor),
-                                 std::chrono::hours(1),
-                                 first,
-                                 last);
+    return all<TForwardIterator>(std::move(executor), std::chrono::hours(1), first, last);
 }
 
 //! \brief Creates a future that becomes ready when all the input futures become ready.
@@ -477,15 +454,12 @@ all_accepts_fwd_iterator_t<TForwardIterator> all(std::shared_ptr<Executor> execu
 //!
 //! \return A std::future<std::tuple> with the input ForwardIterators, where all the
 //! futures in range [first, last) are ready.
-template<class TForwardIterator>
+template <class TForwardIterator>
 all_accepts_fwd_iterator_t<TForwardIterator> all(std::chrono::microseconds timeLimit,
                                                  TForwardIterator first,
                                                  TForwardIterator last)
 {
-    return all<TForwardIterator>(Default<Executor>(),
-                                 std::move(timeLimit),
-                                 first,
-                                 last);
+    return all<TForwardIterator>(Default<Executor>(), std::move(timeLimit), first, last);
 }
 
 //! \brief Creates a future that becomes ready when all the input futures become ready.
@@ -511,14 +485,10 @@ all_accepts_fwd_iterator_t<TForwardIterator> all(std::chrono::microseconds timeL
 //!
 //! \return A std::future<std::tuple> with the input ForwardIterators, where all the
 //! futures in range [first, last) are ready.
-template<class TForwardIterator>
-all_accepts_fwd_iterator_t<TForwardIterator> all(TForwardIterator first,
-                                                 TForwardIterator last)
+template <class TForwardIterator>
+all_accepts_fwd_iterator_t<TForwardIterator> all(TForwardIterator first, TForwardIterator last)
 {
-    return all<TForwardIterator>(Default<Executor>(),
-                                 std::chrono::hours(1),
-                                 first,
-                                 last);
+    return all<TForwardIterator>(Default<Executor>(), std::chrono::hours(1), first, last);
 }
 
 } // namespace futures

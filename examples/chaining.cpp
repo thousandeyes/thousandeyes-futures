@@ -11,8 +11,8 @@
 #include <functional>
 #include <future>
 #include <iostream>
-#include <string>
 #include <memory>
+#include <string>
 
 #include <thousandeyes/futures/DefaultExecutor.h>
 #include <thousandeyes/futures/then.h>
@@ -23,12 +23,10 @@ using namespace thousandeyes::futures;
 
 namespace {
 
-template<class T>
+template <class T>
 future<T> getValueAsync(const T& value)
 {
-    return async(launch::async, [value]() {
-        return value;
-    });
+    return async(launch::async, [value]() { return value; });
 }
 
 } // namespace
