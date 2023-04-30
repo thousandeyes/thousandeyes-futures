@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(thousandeyes-futures VERSION 0.7 LANGUAGES CXX)
+project(thousandeyes-futures VERSION 0.8 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+
+if(CMAKE_GENERATOR MATCHES "Make|Ninja")
+    # These generators support generating a compilation database in the build
+    # tree named "compile_commands.json" which can be used by LLVM-based
+    # tooling.
+    set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
+endif()
 
 add_library(thousandeyes-futures INTERFACE)
 add_library(thousandeyes::futures ALIAS thousandeyes-futures)
