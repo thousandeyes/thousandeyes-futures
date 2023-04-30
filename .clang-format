@@ -1,0 +1,83 @@
+# https://releases.llvm.org/12.0.0/tools/clang/docs/ClangFormatStyleOptions.html
+---
+BasedOnStyle: Google
+
+AccessModifierOffset: -4
+AllowAllArgumentsOnNextLine: false
+AllowAllConstructorInitializersOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortFunctionsOnASingleLine: None
+BinPackArguments: false
+BinPackParameters: false
+BreakConstructorInitializers: AfterColon
+BreakInheritanceList: AfterColon
+ColumnLimit: 100
+DerivePointerAlignment: false
+IndentWidth: 4
+ObjCBlockIndentWidth: 4
+IndentCaseLabels: false
+SpacesInContainerLiterals: false
+CommentPragmas: NOSONAR|NOLINT
+SpacesBeforeTrailingComments: 1
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+    AfterCaseLabel: false
+    AfterClass: false
+    AfterControlStatement: false
+    AfterEnum: false
+    AfterFunction: true
+    AfterNamespace: false
+    AfterObjCDeclaration: false
+    AfterStruct: false
+    AfterUnion: false
+    AfterExternBlock: false
+    BeforeCatch: true
+    BeforeElse: true
+    IndentBraces: false
+    SplitEmptyFunction: false
+    SplitEmptyRecord: true
+    SplitEmptyNamespace: true
+
+TypenameMacros:
+    # Improves formatting of methods defined using COM macros. See:
+    # <https://stackoverflow.com/a/58096957>
+    - STDMETHOD
+    - STDMETHOD_
+    - STDMETHODIMP
+    - STDMETHODIMP_
+
+MacroBlockBegin: BEGIN_CATEGORY_MAP|BEGIN_COM_MAP|BEGIN_MSG_MAP|BEGIN_SINK_MAP
+MacroBlockEnd: END_CATEGORY_MAP|END_COM_MAP|END_MSG_MAP|END_SINK_MAP
+
+SortIncludes: CaseInsensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+    # Regexes should be ordered by specificity. The group to which a header is assigned, and the
+    # relative order of each groups, is determined by the "Priority" value. "SortPriority" can be
+    # used to refine the sort order in each group. See clang-format docs.
+    #
+    #   Main header                0 (assigned by clang-format)
+    #   System headers            10
+    #   STL headers               20
+    #   External headers          40
+    #   Company headers           50
+    #   Other headers        INT_MAX (assigned by clang-format)
+
+    # External libraries.
+    # Gtest/Gmock get their own group.
+    - Regex: "^<(gmock|gtest)/"
+      Priority: 40
+
+    # Company headers.
+    - Regex: '^<(te|thousandeyes)/'
+      Priority: 50
+
+    # System headers.
+    - Regex: '^<.*\.h>'
+      Priority: 10
+      SortPriority: 14
+
+    # STL headers
+    - Regex: "^<"
+      Priority: 20
