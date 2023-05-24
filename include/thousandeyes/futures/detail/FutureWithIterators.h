@@ -19,7 +19,7 @@ namespace thousandeyes {
 namespace futures {
 namespace detail {
 
-template<class TForwardIterator>
+template <class TForwardIterator>
 class FutureWithIterators : public TimedWaitable {
 public:
     FutureWithIterators(std::chrono::microseconds waitLimit,

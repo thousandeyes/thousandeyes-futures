@@ -25,23 +25,24 @@ using std::function;
 using std::make_shared;
 using std::make_unique;
 using std::move;
+using std::runtime_error;
 using std::shared_ptr;
+using std::string;
 using std::unique_ptr;
 using std::weak_ptr;
-using std::string;
-using std::runtime_error;
+using std::chrono::duration_cast;
 using std::chrono::hours;
+using std::chrono::microseconds;
+using std::chrono::milliseconds;
 using std::chrono::minutes;
 using std::chrono::seconds;
-using std::chrono::milliseconds;
-using std::chrono::microseconds;
-using std::chrono::duration_cast;
 
 using thousandeyes::futures::PollingExecutor;
+using thousandeyes::futures::TimedWaitable;
 using thousandeyes::futures::Waitable;
 using thousandeyes::futures::WaitableTimedOutException;
-using thousandeyes::futures::TimedWaitable;
 
+using ::testing::_;
 using ::testing::AtLeast;
 using ::testing::IsNull;
 using ::testing::NotNull;
@@ -49,7 +50,6 @@ using ::testing::Return;
 using ::testing::SaveArg;
 using ::testing::Test;
 using ::testing::Throw;
-using ::testing::_;
 
 namespace {
 
@@ -67,8 +67,7 @@ public:
 
 class DispatcherFunctor {
 public:
-    explicit DispatcherFunctor(shared_ptr<Invoker> invoker) :
-        invoker_(move(invoker))
+    explicit DispatcherFunctor(shared_ptr<Invoker> invoker) : invoker_(move(invoker))
     {}
 
     void operator()(function<void()> f)
@@ -105,16 +104,12 @@ TEST_F(PollingExecutorTest, DispatchWaitable)
 {
     auto waitable = make_unique<WaitableMock>();
 
-    EXPECT_CALL(*waitable, wait(microseconds(10000)))
-        .WillOnce(Return(true));
+    EXPECT_CALL(*waitable, wait(microseconds(10000))).WillOnce(Return(true));
 
-    EXPECT_CALL(*waitable, dispatch(IsNull()))
-        .Times(1);
+    EXPECT_CALL(*waitable, dispatch(IsNull())).Times(1);
 
     function<void()> f, g;
-    EXPECT_CALL(*invoker_, invoke(_))
-        .WillOnce(SaveArg<0>(&f))
-        .WillOnce(SaveArg<0>(&g));
+    EXPECT_CALL(*invoker_, invoke(_)).WillOnce(SaveArg<0>(&f)).WillOnce(SaveArg<0>(&g));
 
     poller_->watch(move(waitable));
 
@@ -126,16 +121,12 @@ TEST_F(PollingExecutorTest, ThrowingWaitable)
 {
     auto waitable = make_unique<WaitableMock>();
 
-    EXPECT_CALL(*waitable, wait(microseconds(10000)))
-        .WillOnce(Throw(runtime_error("Oops!")));
+    EXPECT_CALL(*waitable, wait(microseconds(10000))).WillOnce(Throw(runtime_error("Oops!")));
 
-    EXPECT_CALL(*waitable, dispatch(NotNull()))
-        .Times(1);
+    EXPECT_CALL(*waitable, dispatch(NotNull())).Times(1);
 
     function<void()> f, g;
-    EXPECT_CALL(*invoker_, invoke(_))
-        .WillOnce(SaveArg<0>(&f))
-        .WillOnce(SaveArg<0>(&g));
+    EXPECT_CALL(*invoker_, invoke(_)).WillOnce(SaveArg<0>(&f)).WillOnce(SaveArg<0>(&g));
 
     poller_->watch(move(waitable));
 

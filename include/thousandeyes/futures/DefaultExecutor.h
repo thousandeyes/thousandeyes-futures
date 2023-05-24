@@ -15,15 +15,15 @@
 #include <mutex>
 #include <thread>
 
-#include <thousandeyes/futures/PollingExecutor.h>
 #include <thousandeyes/futures/detail/InvokerWithNewThread.h>
 #include <thousandeyes/futures/detail/InvokerWithSingleThread.h>
+#include <thousandeyes/futures/PollingExecutor.h>
 
 namespace thousandeyes {
 namespace futures {
 
-using DefaultExecutor = PollingExecutor<detail::InvokerWithNewThread,
-                                        detail::InvokerWithSingleThread>;
+using DefaultExecutor =
+    PollingExecutor<detail::InvokerWithNewThread, detail::InvokerWithSingleThread>;
 
 } // namespace futures
 } // namespace thousandeyes

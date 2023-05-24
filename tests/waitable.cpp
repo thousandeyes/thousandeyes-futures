@@ -24,25 +24,24 @@ using std::make_shared;
 using std::make_unique;
 using std::move;
 using std::shared_ptr;
+using std::string;
 using std::unique_ptr;
 using std::weak_ptr;
-using std::string;
 using std::chrono::milliseconds;
 
 using thousandeyes::futures::Waitable;
 
+using ::testing::_;
 using ::testing::Return;
 using ::testing::SaveArg;
 using ::testing::Test;
 using ::testing::Throw;
-using ::testing::_;
 
 namespace {
 
 class WaitableMock : public Waitable {
 public:
-    WaitableMock(milliseconds epochDeadline) :
-        Waitable(move(epochDeadline))
+    WaitableMock(milliseconds epochDeadline) : Waitable(move(epochDeadline))
     {}
 
     MOCK_METHOD1(wait, bool(const std::chrono::microseconds& timeout));
@@ -54,8 +53,8 @@ public:
 
 TEST(WaitableTest, Compare)
 {
-    WaitableMock w0{ milliseconds(0) };
-    WaitableMock w1{ milliseconds(10) };
+    WaitableMock w0{milliseconds(0)};
+    WaitableMock w1{milliseconds(10)};
 
     EXPECT_EQ(milliseconds(-10), w0.compare(w1));
     EXPECT_EQ(milliseconds(10), w1.compare(w0));
@@ -63,7 +62,7 @@ TEST(WaitableTest, Compare)
 
 TEST(WaitableTest, Timeout)
 {
-    WaitableMock w{ milliseconds(1821) };
+    WaitableMock w{milliseconds(1821)};
 
     EXPECT_EQ(milliseconds(1821), w.timeout(milliseconds(0)));
     EXPECT_EQ(milliseconds(1822), w.timeout(milliseconds(-1)));
@@ -74,7 +73,7 @@ TEST(WaitableTest, Timeout)
 
 TEST(WaitableTest, Expired)
 {
-    WaitableMock w{ milliseconds(1821) };
+    WaitableMock w{milliseconds(1821)};
 
     EXPECT_FALSE(w.expired(milliseconds(0)));
     EXPECT_FALSE(w.expired(milliseconds(-1)));

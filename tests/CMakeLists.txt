@@ -18,7 +18,6 @@ endif()
 
 # Prevent overriding the parent project's compiler/linker settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-set(CMAKE_CXX_STANDARD 14)
 
 # Add googletest directly to our build, which defines the gtest/gmock and gtest_main targets
 add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
@@ -26,6 +25,14 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
                  EXCLUDE_FROM_ALL)
 
 function(add_testcase _file)
+    if(NOT _file)
+        message(FATAL_ERROR "You must provide a '_file''")
+    endif(NOT _file)
+
+    if(NOT TARGET tests)
+        add_custom_target(tests)
+    endif()
+
     get_filename_component(test_name ${_file} NAME_WE)
     set(_target futures-test-${test_name})
 
@@ -38,6 +45,7 @@ function(add_testcase _file)
                           gtest_main)
 
     add_test(NAME ${_target} COMMAND $<TARGET_FILE:${_target}>)
+    add_dependencies(tests ${_target})
 endfunction(add_testcase)
 
 add_testcase(defaultexecutor.cpp)

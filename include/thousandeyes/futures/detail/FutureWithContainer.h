@@ -19,7 +19,7 @@ namespace thousandeyes {
 namespace futures {
 namespace detail {
 
-template<class TContainer>
+template <class TContainer>
 class FutureWithContainer : public TimedWaitable {
 public:
     FutureWithContainer(std::chrono::microseconds waitLimit,
@@ -38,7 +38,7 @@ public:
 
     bool timedWait(const std::chrono::microseconds& timeout) override
     {
-        for (const auto& f: futures_) {
+        for (const auto& f : futures_) {
             if (f.wait_for(timeout) != std::future_status::ready) {
                 return false;
             }

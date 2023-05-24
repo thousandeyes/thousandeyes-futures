@@ -11,17 +11,17 @@
 #include <atomic>
 #include <functional>
 #include <future>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <iostream>
 #include <random>
 #include <string>
 #include <thread>
 #include <vector>
 
-#include <thousandeyes/futures/Executor.h>
 #include <thousandeyes/futures/DefaultExecutor.h>
+#include <thousandeyes/futures/Executor.h>
 #include <thousandeyes/futures/then.h>
 #include <thousandeyes/futures/util.h>
 
@@ -38,16 +38,16 @@ public:
     void watch(unique_ptr<Waitable> w)
     {
         try {
-           while (active_) {
-               if (!w->wait(minutes(1))) {
-                   continue;
-               }
+            while (active_) {
+                if (!w->wait(minutes(1))) {
+                    continue;
+                }
 
                 w->dispatch();
                 return;
-           }
+            }
 
-           w->dispatch(make_exception_ptr(WaitableWaitException("Executor stoped")));
+            w->dispatch(make_exception_ptr(WaitableWaitException("Executor stoped")));
         }
         catch (...) {
             w->dispatch(current_exception());
@@ -60,7 +60,7 @@ public:
     }
 
 private:
-    atomic<bool> active_{ true };
+    atomic<bool> active_{true};
 };
 
 class UnboundedExecutor : public Executor {
@@ -69,7 +69,7 @@ public:
     {
         lock_guard<mutex> lock(threadListMutex_);
 
-        threads_.emplace_back([this, w=move(w)]() {
+        threads_.emplace_back([this, w = move(w)]() {
             try {
                 while (active_) {
                     if (!w->wait(minutes(1))) {
@@ -94,7 +94,7 @@ public:
 
         lock_guard<mutex> lock(threadListMutex_);
 
-        for (auto& t: threads_) {
+        for (auto& t : threads_) {
             if (t.joinable() && t.get_id() != this_thread::get_id()) {
                 t.join();
             }
@@ -102,7 +102,7 @@ public:
     }
 
 private:
-    atomic<bool> active_{ true };
+    atomic<bool> active_{true};
 
     mutex threadListMutex_;
     vector<thread> threads_;
@@ -121,10 +121,10 @@ public:
             return;
         }
 
-        thread([w=move(w)]() {
-
+        thread([w = move(w)]() {
             try {
-                while (!w->wait(hours(1))) {}
+                while (!w->wait(hours(1))) {
+                }
                 w->dispatch(); // dispatchAtThreadExit()
             }
             catch (...) {
@@ -141,7 +141,7 @@ public:
     }
 
 private:
-    atomic<bool> active_{ true };
+    atomic<bool> active_{true};
 };
 
 } // namespace executors
@@ -150,7 +150,7 @@ private:
 
 namespace {
 
-template<class T>
+template <class T>
 future<T> getValueAsync(const T& value)
 {
     static mutex m;
@@ -169,7 +169,7 @@ future<T> getValueAsync(const T& value)
     });
 }
 
-template<class T, class TException>
+template <class T, class TException>
 future<T> getExceptionAsync()
 {
     return async(launch::async, []() {
@@ -188,9 +188,7 @@ future<int> recFunc1(int count)
         return count + 1;
     });
 
-    return then(move(h), [](future<int> g) {
-        return recFunc2(move(g));
-    });
+    return then(move(h), [](future<int> g) { return recFunc2(move(g)); });
 }
 
 future<int> recFunc2(future<int> f)
@@ -201,9 +199,7 @@ future<int> recFunc2(future<int> f)
         return fromValue(1821);
     }
 
-    auto h = async(launch::async, []() {
-        this_thread::sleep_for(milliseconds(1));
-    });
+    auto h = async(launch::async, []() { this_thread::sleep_for(milliseconds(1)); });
 
     return then(move(h), [count](future<void> g) {
         g.get();
@@ -218,10 +214,10 @@ microseconds simulateAggregateLag(const vector<milliseconds>& expectedRuntimes,
 
     vector<thread> ts;
     vector<future<microseconds>> ifs;
-    for (const auto& t: expectedRuntimes) {
+    for (const auto& t : expectedRuntimes) {
         promise<microseconds> p;
         ifs.push_back(p.get_future());
-        ts.emplace_back([t, t0, p=move(p)]() mutable {
+        ts.emplace_back([t, t0, p = move(p)]() mutable {
             this_thread::sleep_for(t);
             p.set_value(duration_cast<microseconds>(steady_clock::now() - t0));
         });
@@ -231,7 +227,7 @@ microseconds simulateAggregateLag(const vector<milliseconds>& expectedRuntimes,
     for (size_t i = 0; i < ifs.size(); ++i) {
         auto& f = ifs[i];
 
-        milliseconds timeout = hours{ 1821 };
+        milliseconds timeout = hours{1821};
         if (useTimeoutHints) {
             timeout = expectedRuntimes[i] + milliseconds(10);
         }
@@ -244,11 +240,11 @@ microseconds simulateAggregateLag(const vector<milliseconds>& expectedRuntimes,
     ifs.clear();
 
     auto aggregateLag = microseconds(0);
-    for (auto& f: ofs) {
+    for (auto& f : ofs) {
         aggregateLag += f.get();
     }
 
-    for (auto& t: ts) {
+    for (auto& t : ts) {
         t.join();
     }
 
@@ -263,9 +259,7 @@ bool usecase0()
 {
     vector<future<string>> results;
     for (int i = 0; i < 1900; ++i) {
-        results.push_back(then(getValueAsync(i), [](future<int> f) {
-            return to_string(f.get());
-        }));
+        results.push_back(then(getValueAsync(i), [](future<int> f) { return to_string(f.get()); }));
     }
 
     for (int i = 0; i < 1900; ++i) {
@@ -292,24 +286,22 @@ bool usecase1()
 
 bool usecase2()
 {
-    vector<milliseconds> expectedRuntimes {
-        milliseconds(1821),
-        milliseconds(100),
-        milliseconds(600),
-        milliseconds(300),
-        milliseconds(1000),
-        milliseconds(200),
-        milliseconds(5),
-        milliseconds(10),
-        milliseconds(1),
-        milliseconds(500),
-        milliseconds(250),
-        milliseconds(720),
-        milliseconds(1822),
-        milliseconds(2),
-        milliseconds(99),
-        milliseconds(70)
-    };
+    vector<milliseconds> expectedRuntimes{milliseconds(1821),
+                                          milliseconds(100),
+                                          milliseconds(600),
+                                          milliseconds(300),
+                                          milliseconds(1000),
+                                          milliseconds(200),
+                                          milliseconds(5),
+                                          milliseconds(10),
+                                          milliseconds(1),
+                                          milliseconds(500),
+                                          milliseconds(250),
+                                          milliseconds(720),
+                                          milliseconds(1822),
+                                          milliseconds(2),
+                                          milliseconds(99),
+                                          milliseconds(70)};
 
     auto aggregateLag = simulateAggregateLag(expectedRuntimes, false);
     cout << "Aggregate lag WITHOUT timeout hints: " << aggregateLag.count() << endl;
@@ -323,12 +315,12 @@ bool usecase2()
 bool usecase3()
 {
     random_device rnd;
-    mt19937 engine{ rnd() };
-    uniform_int_distribution<int> dist{ 1, 3642 };
+    mt19937 engine{rnd()};
+    uniform_int_distribution<int> dist{1, 3642};
 
     vector<milliseconds> expectedRuntimes(200);
     generate(expectedRuntimes.begin(), expectedRuntimes.end(), [&dist, &engine]() {
-        return milliseconds{ dist(engine) };
+        return milliseconds{dist(engine)};
     });
 
     auto aggregateLag = simulateAggregateLag(expectedRuntimes, true);
@@ -347,14 +339,14 @@ bool usecase3()
 void runUseCases(const string& useCaseName)
 {
     map<string, function<bool()>> allUseCases{
-        { "0", &usecase0 },
-        { "1", &usecase1 },
-        { "2", &usecase2 },
-        { "3", &usecase3 },
+        {"0", &usecase0},
+        {"1", &usecase1},
+        {"2", &usecase2},
+        {"3", &usecase3},
     };
 
     if (useCaseName == "all") {
-        for (auto& e: allUseCases) {
+        for (auto& e : allUseCases) {
             cout << "Runing use case \"" << e.first << "\" --> " << endl;
             auto ok = e.second();
             cout << (ok ? "<-- OK" : "<-- ERROR") << endl;
@@ -375,13 +367,13 @@ void runUseCases(const string& useCaseName)
 int main(int argc, const char* argv[])
 {
     map<string, shared_ptr<Executor>> allExecutors{
-        { "blocking", make_shared<executors::BlockingExecutor>() },
-        { "unbounded", make_shared<executors::UnboundedExecutor>() },
-        { "default0", make_shared<DefaultExecutor>(milliseconds(0)) },
-        { "default1", make_shared<DefaultExecutor>(milliseconds(1)) },
-        { "default10", make_shared<DefaultExecutor>(milliseconds(10)) },
-        { "default100", make_shared<DefaultExecutor>(milliseconds(100)) },
-        { "default500", make_shared<DefaultExecutor>(milliseconds(500)) },
+        {"blocking", make_shared<executors::BlockingExecutor>()},
+        {"unbounded", make_shared<executors::UnboundedExecutor>()},
+        {"default0", make_shared<DefaultExecutor>(milliseconds(0))},
+        {"default1", make_shared<DefaultExecutor>(milliseconds(1))},
+        {"default10", make_shared<DefaultExecutor>(milliseconds(10))},
+        {"default100", make_shared<DefaultExecutor>(milliseconds(100))},
+        {"default500", make_shared<DefaultExecutor>(milliseconds(500))},
     };
 
     string executorName = "all";
@@ -396,8 +388,7 @@ int main(int argc, const char* argv[])
     }
 
     if (executorName == "all") {
-        for (auto& e: allExecutors) {
-
+        for (auto& e : allExecutors) {
             // Skip blocking executor, unless requested explicitly
             if (e.first == "blocking") {
                 continue;
@@ -417,7 +408,7 @@ int main(int argc, const char* argv[])
         cerr << "- Non-existent executor: " << executorName << endl;
     }
 
-    for (auto& e: allExecutors) {
+    for (auto& e : allExecutors) {
         if (e.second) {
             e.second->stop();
         }
