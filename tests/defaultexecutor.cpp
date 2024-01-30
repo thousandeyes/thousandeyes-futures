@@ -11,6 +11,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <functional>
 #include <future>
 #include <map>
@@ -29,11 +30,13 @@
 
 #include <thousandeyes/futures/all.h>
 #include <thousandeyes/futures/DefaultExecutor.h>
+#include <thousandeyes/futures/observe.h>
 #include <thousandeyes/futures/then.h>
 #include <thousandeyes/futures/util.h>
 
 using std::array;
 using std::bind;
+using std::condition_variable;
 using std::exception;
 using std::function;
 using std::future;
@@ -44,6 +47,7 @@ using std::make_shared;
 using std::make_tuple;
 using std::make_unique;
 using std::map;
+using std::move;
 using std::mt19937;
 using std::mutex;
 using std::promise;
@@ -55,6 +59,7 @@ using std::thread;
 using std::to_string;
 using std::tuple;
 using std::uniform_int_distribution;
+using std::unique_lock;
 using std::unique_ptr;
 using std::vector;
 using std::chrono::duration_cast;
@@ -71,6 +76,7 @@ using thousandeyes::futures::DefaultExecutor;
 using thousandeyes::futures::Executor;
 using thousandeyes::futures::fromException;
 using thousandeyes::futures::fromValue;
+using thousandeyes::futures::observe;
 using thousandeyes::futures::then;
 using thousandeyes::futures::Waitable;
 using thousandeyes::futures::WaitableWaitException;
@@ -78,6 +84,7 @@ using thousandeyes::futures::WaitableWaitException;
 namespace detail = thousandeyes::futures::detail;
 
 using ::testing::_;
+using ::testing::UnorderedElementsAre;
 using ::testing::Range;
 using ::testing::Return;
 using ::testing::SaveArg;
@@ -167,6 +174,36 @@ TEST_F(DefaultExecutorTest, ThenWithoutException)
     executor->stop();
 }
 
+TEST_F(DefaultExecutorTest, ObserveWithoutException)
+{
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    mutex mtx;
+    condition_variable cv;
+    vector<int> result;
+
+    auto recordResult = [&](int num) {
+        lock_guard<mutex> lock(mtx);
+
+        result.push_back(num);
+        cv.notify_one();
+    };
+
+    observe(getValueAsync(1821), [&](future<int> f) { recordResult(f.get()); });
+
+    observe(getValueAsync(1822), [&](future<int> f) { recordResult(f.get()); });
+
+    {
+        unique_lock<mutex> lock(mtx);
+        cv.wait(lock, [&] { return result.size() == 2; });
+    }
+
+    EXPECT_THAT(result, UnorderedElementsAre(1821, 1822));
+
+    executor->stop();
+}
+
 TEST_F(DefaultExecutorTest, ThenWithException)
 {
     auto executor = make_shared<DefaultExecutor>(milliseconds(10));
@@ -176,6 +213,39 @@ TEST_F(DefaultExecutorTest, ThenWithException)
                   [](future<int> f) { return to_string(f.get()); });
 
     EXPECT_THROW(f.get(), SomeKindOfError);
+
+    executor->stop();
+}
+
+using DefaultExecutorDeathTest = DefaultExecutorTest;
+
+TEST_F(DefaultExecutorDeathTest, ObserveWithException)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+
+    auto executor = make_shared<DefaultExecutor>(milliseconds(10));
+    Default<Executor>::Setter execSetter(executor);
+
+    mutex mtx;
+    condition_variable cv;
+
+    // This will never become true, as the continuation will rethrow the exception
+    // thrown by the future passed to observe(). It only serves as barrier to block
+    // the execution until observe() throws.
+    bool success = false;
+
+    EXPECT_DEATH(
+        {
+            observe(getExceptionAsync<SomeKindOfError>(), [](future<void> f) {
+                f.get();
+
+                FAIL() << "As f.get() throws this code should never be executed";
+            });
+
+            unique_lock<mutex> lock(mtx);
+            cv.wait(lock, [&]{ return success; });
+        },
+        _);
 
     executor->stop();
 }
@@ -781,7 +851,6 @@ TEST_F(DefaultExecutorTest, TupleAllWithException)
 }
 
 namespace {
-
 future<int> recFunc1(int count);
 future<int> recFunc2(future<int> f);
 
